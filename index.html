@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0d1b2f">
+<meta name="description" content="对对碰 —— 经典点击消除玩法，相连同色方块两个起消，手机上也能玩。">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="对对碰">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
+<title>对对碰</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icons/icon-180.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ══════════════ 载入页 ══════════════ -->
+<div id="boot" class="boot">
+  <div class="boot-logo">对对碰</div>
+  <div class="boot-tip">正在准备棋盘…</div>
+</div>
+
+<!-- ══════════════ 主界面 ══════════════ -->
+<div id="app" class="app" hidden>
+
+  <!-- 夜景背景：天空 / 星星 / 远山剪影 -->
+  <div class="scene" aria-hidden="true">
+    <div class="scene-sky"></div>
+    <div class="scene-stars"></div>
+    <div class="scene-moon"></div>
+    <div class="scene-hills"></div>
+    <div class="scene-vignette"></div>
+  </div>
+
+  <!-- ─────── 顶栏：STAGE 徽章 + 任务条 ─────── -->
+  <header class="topbar">
+    <div class="stage-badge">
+      <span class="stage-badge-label">STAGE</span>
+      <span class="stage-badge-num" id="stageNum">01</span>
+    </div>
+
+    <div class="missions" id="missions"><!-- 任务条由 JS 注入 --></div>
+
+    <button class="icon-btn" id="btnPause" type="button" aria-label="暂停">❚❚</button>
+  </header>
+
+  <!-- ─────── 左栏 ─────── -->
+  <aside class="side side-left">
+    <div class="plaque plaque-target">
+      <span class="plaque-label">通过分数</span>
+      <span class="plaque-value" id="targetScore">2,500</span>
+    </div>
+    <div class="plaque plaque-mine">
+      <span class="plaque-label">我的分数</span>
+      <span class="plaque-value plaque-value-mine" id="myScore">0</span>
+    </div>
+
+    <div class="panel panel-stats">
+      <div class="stat"><span class="stat-k">剩余方块</span><span class="stat-v" id="statRemain">99</span></div>
+      <div class="stat"><span class="stat-k">已消除</span><span class="stat-v" id="statCleared">0</span></div>
+      <div class="stat"><span class="stat-k">最大一组</span><span class="stat-v" id="statMaxGroup">0</span></div>
+    </div>
+
+    <div class="mascots">
+      <img class="mascot-art mascot-monkey" src="assets/art/monkey.svg" alt="" aria-hidden="true">
+      <img class="mascot-art mascot-piggy" src="assets/art/piggy.svg" alt="" aria-hidden="true">
+    </div>
+  </aside>
+
+  <!-- ─────── 棋盘 ─────── -->
+  <main class="board-area">
+    <canvas id="board" aria-label="对对碰棋盘"></canvas>
+    <div class="board-banner" id="boardBanner" hidden></div>
+  </main>
+
+  <!-- ─────── 右栏：立绘 + 聊天框 ─────── -->
+  <aside class="side side-right">
+    <div class="portrait">
+      <img class="portrait-art" id="portraitArt" src="assets/art/hood.svg" alt="小红帽">
+      <div class="portrait-name" id="mascotName">小红帽</div>
+      <div class="portrait-title" id="mascotTitle">森林向导</div>
+    </div>
+    <div class="panel panel-chat">
+      <div class="chat-log" id="chatLog"></div>
+    </div>
+    <div class="puppy" id="puppy" title="旺财（只负责卖萌）">
+      <img class="puppy-art" src="assets/art/puppy.svg" alt="旺财">
+      <div class="puppy-bubble" id="puppyBubble" hidden></div>
+    </div>
+  </aside>
+
+  <!-- ─────── 底栏：提示 + 道具 + 进度条 + 选项/退出 ─────── -->
+  <footer class="bottombar">
+    <div class="bottom-items">
+      <button class="item-btn" id="itemHint" type="button" data-item="hint">
+        <span class="item-icon">👁</span>
+        <span class="item-name">提示</span>
+        <span class="item-count" id="countHint">5</span>
+      </button>
+      <button class="item-btn" id="itemHammer" type="button" data-item="hammer">
+        <span class="item-icon">🔨</span>
+        <span class="item-name">榔头</span>
+        <span class="item-count" id="countHammer">3</span>
+      </button>
+      <button class="item-btn" id="itemTransform" type="button" data-item="transform">
+        <span class="item-icon">🎨</span>
+        <span class="item-name">变换</span>
+        <span class="item-count" id="countTransform">2</span>
+      </button>
+      <div class="bottom-spacer"></div>
+      <button class="item-btn item-btn-ghost" id="btnHelp" type="button">
+        <span class="item-icon">❓</span><span class="item-name">玩法</span>
+      </button>
+      <button class="item-btn item-btn-ghost" id="btnOptions" type="button">
+        <span class="item-icon">⚙</span><span class="item-name">选项</span>
+      </button>
+      <button class="item-btn item-btn-ghost" id="btnExit" type="button">
+        <span class="item-icon">⏏</span><span class="item-name">退出</span>
+      </button>
+    </div>
+
+    <!-- 原版底部那条长进度条 -->
+    <div class="progress-rail">
+      <span class="rail-cap rail-cap-l"></span>
+      <div class="progress" aria-label="过关进度">
+        <div class="progress-fill" id="progressFill"></div>
+        <div class="progress-mark" id="progressStar2" title="二星"></div>
+        <div class="progress-mark" id="progressStar3" title="三星"></div>
+        <div class="progress-text" id="progressText">还差 2,500 分</div>
+      </div>
+      <span class="rail-cap rail-cap-r"></span>
+    </div>
+  </footer>
+
+  <!-- 竖屏时贴在底部的对话条 -->
+  <div class="chat-strip" id="chatStrip">
+    <span class="chat-strip-face" id="chatStripFace">🧚</span>
+    <span class="chat-strip-text" id="chatStripText">一次点掉的方块越多，分数越高哦！</span>
+    <img class="chat-strip-puppy" src="assets/art/puppy.svg" alt="" aria-hidden="true">
+  </div>
+</div>
+
+<!-- ══════════════ 弹层 ══════════════ -->
+
+<!-- 标题页 -->
+<section class="overlay overlay-title" id="screenTitle">
+  <div class="title-bg"></div>
+  <div class="title-inner">
+    <h1 class="game-title">对对碰</h1>
+    <p class="game-sub">相连同色方块，两个起消</p>
+    <div class="title-menu">
+      <button class="btn btn-primary btn-lg" id="btnPlay" type="button">开始游戏</button>
+      <button class="btn btn-lg" id="btnStageSelect" type="button">选择关卡</button>
+      <button class="btn btn-lg" id="btnFree" type="button">自由模式</button>
+      <div class="title-menu-row">
+        <button class="btn" id="btnHowTo" type="button">玩法说明</button>
+        <button class="btn" id="btnSettings" type="button">设置</button>
+      </div>
+    </div>
+    <div class="title-foot">
+      <span id="titleProgress">最高纪录：第 1 关</span>
+      <span class="title-ver">v1.0</span>
+    </div>
+  </div>
+</section>
+
+<!-- 关卡选择 -->
+<section class="overlay" id="screenStages" hidden>
+  <div class="dialog dialog-wide">
+    <h2 class="dialog-title">选择关卡</h2>
+    <div class="chapter-tabs" id="chapterTabs"></div>
+    <div class="stage-grid" id="stageGrid"></div>
+    <div class="dialog-actions">
+      <button class="btn" id="btnStagesBack" type="button">返回</button>
+    </div>
+  </div>
+</section>
+
+<!-- 关卡开场 -->
+<section class="overlay overlay-flash" id="screenIntro" hidden>
+  <div class="intro-card">
+    <div class="intro-chapter" id="introChapter">幽夜森林</div>
+    <div class="intro-stage" id="introStage">第 1 关</div>
+    <div class="intro-target">目标分数 <b id="introTarget">2,500</b></div>
+    <div class="intro-missions" id="introMissions"></div>
+    <div class="intro-tip" id="introTip">在方块点完之前达到目标分即可过关</div>
+  </div>
+</section>
+
+<!-- 暂停 -->
+<section class="overlay" id="screenPause" hidden>
+  <div class="dialog">
+    <h2 class="dialog-title">已暂停</h2>
+    <div class="pause-stats" id="pauseStats"></div>
+    <div class="dialog-actions dialog-actions-col">
+      <button class="btn btn-primary" id="btnResume" type="button">继续游戏</button>
+      <button class="btn" id="btnRestart" type="button">重玩本关</button>
+      <button class="btn" id="btnPauseSettings" type="button">设置</button>
+      <button class="btn btn-danger" id="btnQuit" type="button">退出到标题</button>
+    </div>
+  </div>
+</section>
+
+<!-- 结算 -->
+<section class="overlay" id="screenResult" hidden>
+  <div class="dialog dialog-result">
+    <div class="result-ribbon" id="resultRibbon">过关！</div>
+    <div class="result-stars" id="resultStars"></div>
+    <div class="result-score" id="resultScore">0</div>
+    <div class="result-breakdown" id="resultBreakdown"></div>
+    <div class="result-missions" id="resultMissions"></div>
+    <div class="dialog-actions" id="resultActions"></div>
+  </div>
+</section>
+
+<!-- 无路可走（可用道具救场） -->
+<section class="overlay" id="screenRescue" hidden>
+  <div class="dialog">
+    <h2 class="dialog-title">没有可消的组合了</h2>
+    <p class="dialog-text" id="rescueText">棋盘上还剩 <b>0</b> 个方块，但已经没有相连的同色组合。</p>
+    <p class="dialog-text dim">你还可以用榔头敲掉挡路的方块，或者用变换制造新的组合。</p>
+    <div class="dialog-actions dialog-actions-col" id="rescueActions"></div>
+  </div>
+</section>
+
+<!-- 玩法说明 -->
+<section class="overlay" id="screenHelp" hidden>
+  <div class="dialog dialog-wide dialog-scroll">
+    <h2 class="dialog-title">玩法说明</h2>
+
+    <div class="help-section">
+      <h3>怎么消除</h3>
+      <p>棋盘铺满彩色方块。点击<b>上下左右相连、两个以上</b>的同色方块，整组一起消失。</p>
+      <p class="dim">斜着挨在一起<b>不算</b>相连；孤零零的单个方块点不掉。</p>
+      <div class="help-figure">
+        <div class="help-grid help-grid-ok">
+          <i class="c0"></i><i class="c0"></i><i class="c3"></i>
+          <i class="c0"></i><i class="c2"></i><i class="c3"></i>
+          <i class="c1"></i><i class="c2"></i><i class="c1"></i>
+        </div>
+        <span class="help-figure-cap">左上三个红块相连 → 可以消</span>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <h3>空位怎么填</h3>
+      <p>方块<b>不会从上往下掉</b>。消除之后，<b>同一行里空位两侧的方块会向中间靠拢</b>，把空位挤掉。</p>
+      <div class="help-figure">
+        <div class="help-row">
+          <i class="c0"></i><i class="c1"></i><i class="gap"></i><i class="gap"></i><i class="c2"></i><i class="c3"></i>
+        </div>
+        <span class="help-arrow">↓</span>
+        <div class="help-row">
+          <i class="gap"></i><i class="gap"></i><i class="c0"></i><i class="c1"></i><i class="c2"></i><i class="c3"></i>
+        </div>
+        <span class="help-figure-cap">左边两块向右靠，空位被挤到最外侧</span>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <h3>怎么算分</h3>
+      <p><b>一次消掉的方块越多，分数涨得越猛</b> —— 得分按组的大小平方增长，不是简单相加。</p>
+      <table class="help-table" id="helpScoreTable"></table>
+      <p>本局结束时，<b>剩下的方块越少，奖励分越高</b>；全部清空还有一笔额外大奖。</p>
+      <p class="dim">所以别见到两个就点 —— 先清小的、把大色块攒起来，一口气消掉才是高分打法。</p>
+    </div>
+
+    <div class="help-section">
+      <h3>过关与结束</h3>
+      <p>达到本关的<b>目标分数</b>即可过关。</p>
+      <p>从<b>第 6 关</b>起会出现<b>任务目标</b>，完成能拿到一笔可观的奖励分。</p>
+      <p>当棋盘上再也找不到相连的同色组合时，本局结束；此时分数没达标就要重来。</p>
+    </div>
+
+    <div class="help-section">
+      <h3>特殊方块</h3>
+      <div class="help-item">
+        <span class="help-item-icon">✨</span>
+        <div>
+          <b>魔术方块</b>（带星芒和虚线框）<br>
+          点它<b>不会消除</b>，而是把自己<b>换成下一种颜色</b>。它按当前颜色参与相连判定，
+          所以可以把它切成需要的颜色，<b>把两片分开的色块接起来</b>，再点旁边的普通方块一起带走。
+        </div>
+      </div>
+      <div class="help-item">
+        <span class="help-item-icon">🪨</span>
+        <div>
+          <b>顽石</b>（灰色岩块）<br>
+          不参与任何消除，点了也没反应，<b>只能用榔头敲掉</b>。第 12 关起出现。
+        </div>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <h3>道具怎么用</h3>
+      <p class="dim">先点底部的道具图标激活，再点棋盘上的位置使用。再点一次图标可以取消。</p>
+      <div class="help-item">
+        <span class="help-item-icon">🔨</span>
+        <div><b>榔头</b> —— 直接敲掉<b>任意一个</b>方块，不受相连规则限制，顽石也能敲。敲掉的方块不计分。</div>
+      </div>
+      <div class="help-item">
+        <span class="help-item-icon">🎨</span>
+        <div><b>变换</b> —— 把点击处的<b>十字五格</b>染成同一种颜色，用来硬造一组可消的方块。</div>
+      </div>
+      <div class="help-item">
+        <span class="help-item-icon">👁</span>
+        <div><b>提示</b> —— 指出当前<b>最大的一组</b>可消方块。会扣一点分。</div>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <h3>操作</h3>
+      <p>默认开启<b>二次确认</b>：第一次点亮一组并显示「几个 + 多少分」，再点一次才真的消除，避免手滑。
+         嫌慢可以在设置里关掉，改成<b>点一下直接消</b>。</p>
+    </div>
+
+    <div class="dialog-actions">
+      <button class="btn btn-primary" id="btnHelpClose" type="button">我知道了</button>
+    </div>
+  </div>
+</section>
+
+<!-- 设置 -->
+<section class="overlay" id="screenSettings" hidden>
+  <div class="dialog dialog-scroll">
+    <h2 class="dialog-title">设置</h2>
+
+    <div class="setting-group">
+      <div class="setting-group-title">操作</div>
+      <label class="setting">
+        <span class="setting-label">二次确认<small>先点亮再确认，防手滑</small></span>
+        <input type="checkbox" id="setConfirmTap" class="switch">
+      </label>
+      <label class="setting">
+        <span class="setting-label">选中显示数量与得分</span>
+        <input type="checkbox" id="setShowCount" class="switch">
+      </label>
+      <label class="setting">
+        <span class="setting-label">震动反馈</span>
+        <input type="checkbox" id="setVibrate" class="switch">
+      </label>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-group-title">画面</div>
+      <label class="setting">
+        <span class="setting-label">棋盘尺寸<small>换尺寸会重开本关</small></span>
+        <select id="setBoard" class="select"></select>
+      </label>
+      <label class="setting">
+        <span class="setting-label">显示格子底纹</span>
+        <input type="checkbox" id="setShowGrid" class="switch">
+      </label>
+      <label class="setting">
+        <span class="setting-label">粒子特效<small>关掉可以省电</small></span>
+        <input type="checkbox" id="setParticles" class="switch">
+      </label>
+      <label class="setting">
+        <span class="setting-label">色盲辅助形状<small>每种颜色叠一个形状</small></span>
+        <input type="checkbox" id="setColorMark" class="switch">
+      </label>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-group-title">声音</div>
+      <label class="setting">
+        <span class="setting-label">音效</span>
+        <input type="checkbox" id="setSound" class="switch">
+      </label>
+      <label class="setting">
+        <span class="setting-label">背景音乐</span>
+        <input type="checkbox" id="setMusic" class="switch">
+      </label>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-group-title">存档</div>
+      <div class="setting-stats" id="settingStats"></div>
+      <div class="setting-buttons">
+        <button class="btn btn-sm" id="btnExport" type="button">导出存档</button>
+        <button class="btn btn-sm" id="btnImport" type="button">导入存档</button>
+        <button class="btn btn-sm btn-danger" id="btnResetSave" type="button">清空进度</button>
+      </div>
+    </div>
+
+    <div class="dialog-actions">
+      <button class="btn btn-primary" id="btnSettingsClose" type="button">完成</button>
+    </div>
+  </div>
+</section>
+
+<!-- 通用提示条 -->
+<div class="toast" id="toast" hidden></div>
+
+<noscript>
+  <div class="noscript">这个游戏需要启用 JavaScript 才能运行。</div>
+</noscript>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

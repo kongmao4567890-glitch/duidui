@@ -26,31 +26,43 @@ export const BLOCK_KIND = {
   STONE: 2      // 顽石：无色，只能用榔头敲掉（后期关卡出现）
 };
 
-/** 消除后空位的填补方式 */
+/**
+ * 消除后空位的填补方式。
+ * GRAVITY 为原版行为：上方方块落下填补，整列清空后右侧的列向左合拢。
+ * （这条规则是把原版录屏逐帧解成占位矩阵比对出来的：每一列都严格底对齐，
+ *   且消除一格后该列上方整体下移一行。）
+ */
 export const COLLAPSE = {
-  CENTER: 'center',  // 原版：同一行两侧方块向中间靠拢
-  LEFT: 'left',      // 整行靠左
-  RIGHT: 'right'     // 整行靠右
+  GRAVITY: 'gravity',  // 原版：向下掉落 + 空列左移
+  CENTER: 'center',    // 变体：同一行两侧方块向中间靠拢
+  LEFT: 'left',        // 变体：整行靠左
+  RIGHT: 'right'       // 变体：整行靠右
 };
 
-/** 棋盘尺寸预设 */
+/** 棋盘尺寸预设（原版为 10×10） */
 export const BOARD_PRESETS = {
   mini:     { cols: 8,  rows: 9,  label: '迷你 8×9' },
-  standard: { cols: 9,  rows: 11, label: '原版 9×11' },
-  large:    { cols: 10, rows: 13, label: '挑战 10×13' }
+  standard: { cols: 10, rows: 10, label: '原版 10×10' },
+  large:    { cols: 11, rows: 12, label: '挑战 11×12' }
 };
 
 /** 计分规则 */
 export const SCORE = {
-  /** 单组得分 = groupFactor × colorFactor[颜色数] × (n − 1)²，n 为该组方块数 */
-  groupFactor: 25,
+  /**
+   * 单组得分 = groupFactor × colorFactor[颜色数] × n × (n − 1)，n 为该组方块数。
+   * 系数 10 是从原版录屏里量出来的：连续两次「消掉 2 个」，
+   * 分数都是 300→320→340，即 n=2 恰好 20 分。
+   *   n=2 → 20   n=3 → 60   n=4 → 120   n=5 → 200
+   *   n=8 → 560  n=10 → 900  n=15 → 2100
+   */
+  groupFactor: 10,
   /**
    * 颜色越多越难连成大块，单格产出会断崖式下跌。
    * 用这个系数补偿，让分数尺度不随颜色数崩塌，
    * 目标分才能一路单调上升，而不是在加颜色那关突然倒退。
    * 系数由 tools/curve.mjs 实测的单格产出反推而来。
    */
-  colorFactor: { 3: 0.39, 4: 0.61, 5: 1.0, 6: 1.47, 7: 1.86 },
+  colorFactor: { 3: 0.42, 4: 0.66, 5: 1.0, 6: 1.36, 7: 1.77 },
   /** 一次消除 ≥ bigGroup 个时的额外喝彩奖励 */
   bigGroup: 8,
   bigGroupBonus: 150,
@@ -77,11 +89,11 @@ export const STAGE = {
    * 压强从第 1 关的 42% 一路爬到 88%，配合颜色数增加与特殊方块，
    * 难度稳定上升，第 1 关的目标分依然是原版的 2500。
    */
-  pressureBase: 0.443,   // 标定为「第 1 关目标分 = 原版的 2500」
+  pressureBase: 0.222,   // 标定为「第 1 关目标分 = 原版录屏里的 1000」
   pressureStep: 0.040,
   pressureMax: 0.90,
   /** 目标分的硬上限：不得超过可达分的这个比例，防止单调化把关卡顶成必输 */
-  hardCap: 0.83,
+  hardCap: 0.80,
   /** 棋盘随关卡长高，给后期更高的分数天花板 */
   rowEveryStages: 5,
   maxExtraRows: 4,
@@ -94,9 +106,14 @@ export const STAGE = {
   magicRateStep: 0.004,
   magicRateMax: 0.07,
   stoneFromStage: 12,      // 第 12 关起出现顽石
-  stoneRateBase: 0.02,
-  stoneRateStep: 0.004,
-  stoneRateMax: 0.08
+  stoneRateBase: 0.015,
+  /**
+   * 顽石比例涨得很慢、上限也压得低 —— 顽石会拉低这一关的分数天花板，
+   * 涨太快会让目标分不升反降，玩家会误以为关卡变简单了。
+   * 后期难度交给颜色数和任务目标，不靠堆顽石。
+   */
+  stoneRateStep: 0.0015,
+  stoneRateMax: 0.042
 };
 
 /** 动画时长（毫秒） */
@@ -134,5 +151,6 @@ export const DEFAULT_SETTINGS = {
   particles: true,
   confirmTap: true,     // true = 先点选高亮、再点一次确认消除
   showGrid: true,
-  showCount: true       // 在选中组上显示数量与预估得分
+  showCount: true,      // 在选中组上显示数量与预估得分
+  colorMark: true       // 色盲辅助：每种颜色叠一个形状标记
 };

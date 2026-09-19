@@ -6,9 +6,9 @@ import { play, median } from './bot.mjs';
 import { SCORE } from '../src/core/config.js';
 
 const RUNS = Number(process.argv[2] || 50);
-const SIZES = [[8, 9], [9, 11], [9, 13], [9, 15], [10, 13]];
+const SIZES = [[8, 9], [10, 10], [10, 12], [11, 12], [11, 14]];
 
-console.log(`\n每组 ${RUNS} 局，单组公式 ${SCORE.groupFactor}×(n−1)²（未乘颜色系数）\n`);
+console.log(`\n每组 ${RUNS} 局，单组公式 ${SCORE.groupFactor}×n×(n−1)（未乘颜色系数）\n`);
 console.log('颜色  棋盘     格数  ' + ['random', 'greedy', 'patient', 'lookahead'].map((k) => k.padEnd(10)).join('') + ' 高手单格产出');
 
 const perCell = {};

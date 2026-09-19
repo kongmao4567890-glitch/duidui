@@ -132,62 +132,95 @@ console.log('\n【4】消除一组');
   ok(b.remaining === 15, `消除后剩 15 个（实际 ${b.remaining}）`);
 }
 
-console.log('\n【5】填补规则：同行两侧向中间靠拢，不掉落、不补充');
+console.log('\n【5】填补规则：上方落下（原版）');
 {
+  const { b } = mkBoard(5, 4, 9, 1, { collapse: COLLAPSE.GRAVITY });
+  const map = layout(b, [
+    'ABCDE',
+    'FGHIA',
+    'BBCDE',
+    'FGHIA'
+  ]);
+  // 手工消掉第 2 行左边那对 B
+  b.grid[b.index(0, 2)].removing = true;
+  b.grid[b.index(1, 2)].removing = true;
+  b._applyCollapse();
+  settle(b);
+  ok(renderAs(b, map) === '··CDE\nABHIA\nFGCDE\nFGHIA',
+     `第 0、1 列整体下落一格：期望 "··CDE/ABHIA/FGCDE/FGHIA"，实际 "${renderAs(b, map).replace(/\n/g, '/')}"`);
+}
+{
+  // 每一列都必须严格底对齐，列内不能出现悬空的洞
+  const { b } = mkBoard(9, 10, 6, 4242);
+  b.generate(); settle(b);
+  for (let i = 0; i < 40 && b.hasMoves(); i++) {
+    b.removeAt(b.allGroups()[0][0]);
+    settle(b);
+  }
+  let holes = 0;
+  for (let c = 0; c < b.cols; c++) {
+    let seenEmpty = false;
+    for (let r = b.rows - 1; r >= 0; r--) {     // 从下往上：一旦遇到空格，上面必须也全空
+      if (!b.get(c, r)) seenEmpty = true;
+      else if (seenEmpty) holes++;              // 空格之上还挂着方块 → 悬空
+    }
+  }
+  ok(holes === 0, `连消 40 次后所有列仍严格底对齐，没有悬空方块（洞数 ${holes}）`);
+}
+
+console.log('\n【6】整列清空后，右侧的列向左合拢');
+{
+  const { b } = mkBoard(5, 3, 9, 1, { collapse: COLLAPSE.GRAVITY });
+  const map = layout(b, [
+    'AXBCD',
+    'AXBCD',
+    'AXBCD'
+  ]);
+  // 把第 1 列（全是 X）整列消掉
+  for (let r = 0; r < 3; r++) b.grid[b.index(1, r)].removing = true;
+  b._applyCollapse();
+  settle(b);
+  ok(renderAs(b, map) === 'ABCD·\nABCD·\nABCD·',
+     `空列被右侧的列填上：期望 "ABCD·"×3，实际 "${renderAs(b, map).replace(/\n/g, '/')}"`);
+}
+{
+  // 变体玩法：同一行向中间靠拢（设置里可切换）
   const { b } = mkBoard(9, 1, 9, 1, { collapse: COLLAPSE.CENTER });
-  //           0 1 2 3 | 4 5 6 7 8     mid = 4
   const map = layout(b, ['ABCDEFGHI']);
-  // 手工移除第 2、3 格（C、D）
   b.grid[2].removing = true;
   b.grid[3].removing = true;
   b._applyCollapse();
   settle(b);
-  ok(renderAs(b, map) === '··ABEFGHI', `左半区向右靠拢：期望 "··ABEFGHI"，实际 "${renderAs(b, map)}"`);
-}
-{
-  const { b } = mkBoard(9, 1, 9, 1, { collapse: COLLAPSE.CENTER });
-  const map = layout(b, ['ABCDEFGHI']);
-  b.grid[5].removing = true;   // F
-  b.grid[6].removing = true;   // G
-  b._applyCollapse();
-  settle(b);
-  ok(renderAs(b, map) === 'ABCDEHI··', `右半区向左靠拢：期望 "ABCDEHI··"，实际 "${renderAs(b, map)}"`);
-}
-{
-  // 跨中线消除：两侧同时向中间靠拢
-  const { b } = mkBoard(9, 1, 9, 1, { collapse: COLLAPSE.CENTER });
-  const map = layout(b, ['ABCDEFGHI']);
-  b.grid[3].removing = true;   // D（左半区）
-  b.grid[4].removing = true;   // E（右半区）
-  b._applyCollapse();
-  settle(b);
-  ok(renderAs(b, map) === '·ABCFGHI·', `跨中线：期望 "·ABCFGHI·"，实际 "${renderAs(b, map)}"`);
+  ok(renderAs(b, map) === '··ABEFGHI', `「向中间靠拢」变体仍然可用（实际 "${renderAs(b, map)}"）`);
 }
 
-console.log('\n【6】无重力：方块绝不上下移动，也不会补充新块');
+console.log('\n【6b】不会补充新方块');
 {
-  const { b } = mkBoard(7, 4);
-  layout(b, [
-    'AABCDEF',
-    'CDEFABC',
-    'DEFABCD',
-    'EFABCDE'
-  ]);
+  const { b } = mkBoard(7, 4, 6, 77);
+  b.generate(); settle(b);
   const before = b.remaining;
-  const rowOfIds = () => b.grid.map((x, i) => (x ? `${x.id}@${b.rowOf(i)}` : null)).filter(Boolean).sort();
-  const rowsBefore = new Map();
-  b.grid.forEach((x, i) => { if (x) rowsBefore.set(x.id, b.rowOf(i)); });
-
-  b.removeAt(b.index(0, 0));   // 消掉第 0 行的 AA
+  const g = b.allGroups()[0];
+  b.removeAt(g[0]);
   settle(b);
+  ok(b.remaining === before - g.length, `方块只减不增：${before} → ${b.remaining}（消了 ${g.length} 个）`);
+}
 
-  let sameRow = true;
-  b.grid.forEach((x, i) => {
-    if (x && rowsBefore.has(x.id) && rowsBefore.get(x.id) !== b.rowOf(i)) sameRow = false;
-  });
-  ok(sameRow, '所有幸存方块都留在原来的行（没有掉落）');
-  ok(b.remaining === before - 2, `方块只减不增：${before} → ${b.remaining}`);
-  ok(b.grid.filter(Boolean).length === before - 2, '顶部没有补充新方块');
+console.log('\n【6c】颜色剩余计数（原版顶部那条计数条）');
+{
+  const { b } = mkBoard(6, 4, 4, 9);
+  b.generate(); settle(b);
+  const counts = b.colorCounts();
+  const normals = b.grid.filter((x) => x && x.isNormal).length;
+  ok(counts.length === 4, '按颜色数返回计数数组');
+  ok(counts.reduce((a, x) => a + x, 0) === normals,
+     `各色计数之和 = 普通方块总数（${counts.reduce((a, x) => a + x, 0)} / ${normals}）`);
+  const g = b.allGroups()[0];
+  const type = b.grid[g[0]].type;
+  const beforeN = counts[type];
+  b.removeAt(g[0]);
+  settle(b);
+  ok(b.colorCounts()[type] === beforeN - g.length,
+     `消掉一组后该颜色计数正确减少：${beforeN} → ${b.colorCounts()[type]}`);
 }
 
 console.log('\n【7】魔术方块：按当前颜色参与分组，点它只换色');
@@ -328,7 +361,7 @@ console.log('\n【11】贪心 AI 完整对局压测');
 {
   let worst = null;
   for (let seed = 1; seed <= 30; seed++) {
-    const { b } = mkBoard(9, 11, 5, seed * 7919);
+    const { b } = mkBoard(10, 10, 5, seed * 7919);
     b.generate(); settle(b);
     let steps = 0;
     while (b.hasMoves() && steps < 300) {
@@ -340,24 +373,26 @@ console.log('\n【11】贪心 AI 完整对局压测');
     }
     if (worst) break;
     if (b.grid.some((x, i) => x && x.anim)) { worst = `seed ${seed} 残留动画`; break; }
-    // 行完整性校验：每一行的方块必须连续贴着中线
-    for (let r = 0; r < b.rows; r++) {
-      const mid = Math.floor(b.cols / 2);
-      let leftGap = false;
-      for (let c = mid - 1; c >= 0; c--) {
-        if (!b.get(c, r)) leftGap = true;
-        else if (leftGap) { worst = `seed ${seed} 第 ${r} 行左半区有空洞`; break; }
-      }
-      let rightGap = false;
-      for (let c = mid; c < b.cols; c++) {
-        if (!b.get(c, r)) rightGap = true;
-        else if (rightGap) { worst = `seed ${seed} 第 ${r} 行右半区有空洞`; break; }
+    // 列完整性校验：每一列必须严格底对齐，且空列只能出现在右侧
+    for (let c = 0; c < b.cols; c++) {
+      let seenEmpty = false;
+      for (let r = b.rows - 1; r >= 0; r--) {
+        if (!b.get(c, r)) seenEmpty = true;
+        else if (seenEmpty) { worst = `seed ${seed} 第 ${c} 列有悬空方块`; break; }
       }
       if (worst) break;
     }
     if (worst) break;
+    let sawEmptyCol = false;
+    for (let c = 0; c < b.cols; c++) {
+      let empty = true;
+      for (let r = 0; r < b.rows; r++) if (b.get(c, r)) { empty = false; break; }
+      if (empty) sawEmptyCol = true;
+      else if (sawEmptyCol) { worst = `seed ${seed} 空列没有被合拢到右侧`; break; }
+    }
+    if (worst) break;
   }
-  ok(worst === null, worst || '30 局贪心对局全部正常收官，且行内无空洞');
+  ok(worst === null, worst || '30 局贪心对局全部正常收官，列全部底对齐、空列全在右侧');
 }
 
 console.log('\n【12】Game 层：完整一关');

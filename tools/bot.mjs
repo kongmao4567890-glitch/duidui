@@ -90,7 +90,7 @@ export const STRATEGIES = {
 export function play(opts, strategyKey, seed) {
   const { cols, rows, colors, magicRate = 0, stoneRate = 0, factor = SCORE.groupFactor } = opts;
   const rng = new Rng(seed);
-  const b = new Board({ cols, rows, colors, rng, bus: new EventBus(), collapse: COLLAPSE.CENTER, magicRate, stoneRate });
+  const b = new Board({ cols, rows, colors, rng, bus: new EventBus(), collapse: COLLAPSE.GRAVITY, magicRate, stoneRate });
 
   let guard = 0;
   do {

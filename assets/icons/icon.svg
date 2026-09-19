@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22406b"/>
+      <stop offset="0.55" stop-color="#141f3b"/>
+      <stop offset="1" stop-color="#0a0f1e"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6d365"/>
+      <stop offset="0.5" stop-color="#b4874a"/>
+      <stop offset="1" stop-color="#f6d365"/>
+    </linearGradient>
+    <linearGradient id="red" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffc2cd"/><stop offset="0.42" stop-color="#ff4d6a"/><stop offset="1" stop-color="#9e0f33"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c3f7cc"/><stop offset="0.42" stop-color="#5ce072"/><stop offset="1" stop-color="#0f7c35"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c0d6ff"/><stop offset="0.42" stop-color="#4d8dff"/><stop offset="1" stop-color="#10399e"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.6">
+      <stop offset="0" stop-color="#f6d365" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#f6d365" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="113" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="113" fill="url(#glow)"/>
+  <rect x="13" y="13" width="486" height="486" rx="103" fill="none" stroke="url(#gold)" stroke-width="18"/>
+
+  <!-- 左上两块红色相连：正是「两个起消」的规则 -->
+  <rect x="103" y="103" width="141" height="141" rx="37" fill="url(#red)" stroke="#9e0f33" stroke-width="7"/>
+  <rect x="268" y="103" width="141" height="141" rx="37" fill="url(#red)" stroke="#9e0f33" stroke-width="7"/>
+  <rect x="103" y="268" width="141" height="141" rx="37" fill="url(#green)" stroke="#0f7c35" stroke-width="7"/>
+  <rect x="268" y="268" width="141" height="141" rx="37" fill="url(#blue)" stroke="#10399e" stroke-width="7"/>
+
+  <!-- 高光 -->
+  <ellipse cx="150" cy="150" rx="34" ry="19" fill="#fff" opacity="0.65" transform="rotate(-22 150 150)"/>
+  <ellipse cx="315" cy="150" rx="34" ry="19" fill="#fff" opacity="0.65" transform="rotate(-22 315 150)"/>
+  <ellipse cx="150" cy="315" rx="34" ry="19" fill="#fff" opacity="0.6"  transform="rotate(-22 150 315)"/>
+  <ellipse cx="315" cy="315" rx="34" ry="19" fill="#fff" opacity="0.6"  transform="rotate(-22 315 315)"/>
+
+  <!-- 相连提示光框 -->
+  <rect x="93" y="93" width="326" height="161" rx="48" fill="none" stroke="#fff" stroke-width="9" opacity="0.92"/>
+</svg>

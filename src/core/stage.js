@@ -120,7 +120,7 @@ export function stageBoardSize(n, boardKey = 'standard') {
  * 单格期望产出分：颜色越多，能连成的块越小，单格产出骤降。
  * 数值由 tools/curve.mjs 在真实棋盘上用机器人实测后标定。
  */
-const PER_CELL_SCORE = { 3: 200, 4: 110, 5: 57, 6: 34, 7: 25 };
+const PER_CELL_SCORE = { 3: 140, 4: 79, 5: 45, 6: 30, 7: 21 };
 
 /** 该颜色数下的单组得分系数 */
 export function colorScoreFactor(colors) {
@@ -177,9 +177,11 @@ export function targetFor(n, boardKey = 'standard', ceiling = null) {
     const { raw, ceiling: cap } = i === n && ceiling != null
       ? { raw: rawTarget(i, boardKey).raw, ceiling: ceiling }
       : rawTarget(i, boardKey);
-    // 先取「不低于上一关」，再压回可达分上限之内
+    // 先取「不低于上一关」，再压回可达分上限之内；
+    // 最后再兜一次 prev —— 宁可微微超过软上限，也不能让玩家看到目标分往回掉。
     const wanted = Math.max(raw, prev);
-    const value = Math.max(500, Math.round(Math.min(wanted, cap * STAGE.hardCap) / 50) * 50);
+    const capped = Math.round(Math.min(wanted, cap * STAGE.hardCap) / 50) * 50;
+    const value = Math.max(500, prev, capped);
     targetCache.set(k, value);
     prev = value;
   }

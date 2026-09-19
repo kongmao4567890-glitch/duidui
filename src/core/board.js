@@ -70,7 +70,7 @@ export class Board {
    * @param {number} [opts.magicRate] 魔术方块占比
    * @param {number} [opts.stoneRate] 顽石占比
    */
-  constructor({ cols, rows, colors, rng, bus, collapse = COLLAPSE.CENTER, magicRate = 0, stoneRate = 0 }) {
+  constructor({ cols, rows, colors, rng, bus, collapse = COLLAPSE.GRAVITY, magicRate = 0, stoneRate = 0 }) {
     this.cols = cols;
     this.rows = rows;
     this.colors = colors;
@@ -111,6 +111,19 @@ export class Board {
     let n = 0;
     for (const b of this.grid) if (b) n++;
     return n;
+  }
+
+  /**
+   * 按颜色统计剩余数量 —— 原版棋盘顶部那条计数条就是这个。
+   * 魔术方块与顽石不计入任何颜色。
+   * @returns {number[]} 下标为颜色索引
+   */
+  colorCounts() {
+    const out = new Array(this.colors).fill(0);
+    for (const b of this.grid) {
+      if (b && b.isNormal && b.type >= 0 && b.type < this.colors) out[b.type]++;
+    }
+    return out;
   }
 
   /** 剩余的非顽石方块数 */
@@ -266,14 +279,13 @@ export class Board {
   }
 
   /**
-   * 单组得分公式：factor × (n − 1)²
-   * 二次成长让「攒大块」的收益远高于「见到就点」，
-   * 正好对应原版「一次消除数量越多、单组得分越高」的手感。
-   *   n=2 → 1f    n=3 → 4f    n=5 → 16f
-   *   n=8 → 49f   n=12 → 121f n=20 → 361f
+   * 单组得分公式：factor × n × (n − 1)
+   * 系数取自原版实测（n=2 恰好 20 分 → factor = 10）。
+   *   n=2 → 2f    n=3 → 6f    n=5 → 20f
+   *   n=8 → 56f   n=12 → 132f n=20 → 380f
    */
-  static groupScore(n, factor = 25) {
-    return factor * (n - 1) * (n - 1);
+  static groupScore(n, factor = 10) {
+    return factor * n * (n - 1);
   }
 
   // ==================== 玩家操作 ====================
@@ -477,8 +489,10 @@ export class Board {
   }
 
   /**
-   * 空位填补：同一行中，空位两侧的方块向中间靠拢。
-   * 不做任何纵向移动，也不补充新方块。
+   * 空位填补。
+   * 原版（GRAVITY）：被消掉的格子由上方方块落下填补；
+   * 若某一列被清空，右侧的列整体向左合拢。
+   * 另外三种为可选变体（同行向中间靠拢 / 靠左 / 靠右），在设置里可切换。
    */
   _applyCollapse() {
     // 先真正移除方块
@@ -486,13 +500,72 @@ export class Board {
       if (this.grid[i] && this.grid[i].removing) this.grid[i] = null;
     }
 
+    const moved = this.collapse === COLLAPSE.GRAVITY
+      ? this._collapseGravity()
+      : this._collapseHorizontal();
+
+    this.state = BOARD_STATE.COLLAPSING;
+    this.animT = 0;
+    this.animDur = moved ? ANIM.collapse : 0;
+    this.bus.emit('board:collapse', { moved });
+  }
+
+  /** 原版填补：先让每一列落到底，再把空列合并掉 */
+  _collapseGravity() {
+    let moved = 0;
+
+    // 第一步：每一列内部向下压实
+    for (let c = 0; c < this.cols; c++) {
+      let write = this.rows - 1;
+      for (let r = this.rows - 1; r >= 0; r--) {
+        const b = this.get(c, r);
+        if (!b) continue;
+        if (write !== r) {
+          this.set(c, write, b);
+          this.set(c, r, null);
+          b.oy = r - write;                     // 从原位置滑下来
+          b.anim = { type: 'drop', t: 0, dur: ANIM.collapse, fromY: b.oy };
+          moved++;
+        }
+        write--;
+      }
+    }
+
+    // 第二步：整列被清空时，右边的列向左合拢
+    const keep = [];
+    for (let c = 0; c < this.cols; c++) {
+      let empty = true;
+      for (let r = 0; r < this.rows; r++) if (this.get(c, r)) { empty = false; break; }
+      if (!empty) keep.push(c);
+    }
+    if (keep.length !== this.cols) {
+      const next = new Array(this.cols * this.rows).fill(null);
+      keep.forEach((from, to) => {
+        for (let r = 0; r < this.rows; r++) {
+          const b = this.get(from, r);
+          if (!b) continue;
+          next[r * this.cols + to] = b;
+          if (from !== to) {
+            b.ox = from - to;
+            // 横向合拢排在下落之后，视觉上更容易看懂
+            b.anim = { type: 'slide', t: -ANIM.collapse * 0.45, dur: ANIM.collapse, fromX: b.ox };
+            moved++;
+          }
+        }
+      });
+      this.grid = next;
+    }
+
+    return moved;
+  }
+
+  /** 变体填补：同一行内水平压实（向中间 / 靠左 / 靠右） */
+  _collapseHorizontal() {
     let moved = 0;
     for (let r = 0; r < this.rows; r++) {
       const row = [];
       for (let c = 0; c < this.cols; c++) row.push(this.get(c, r));
-
       const placed = this._packRow(row);
-
       for (let c = 0; c < this.cols; c++) {
         const b = placed[c];
         this.set(c, r, b);
@@ -505,15 +578,11 @@ export class Board {
         }
       }
     }
-
-    this.state = BOARD_STATE.COLLAPSING;
-    this.animT = 0;
-    this.animDur = moved ? ANIM.collapse : 0;
-    this.bus.emit('board:collapse', { moved });
+    return moved;
   }
 
   /**
-   * 把一行的方块按填补规则重新排布。
+   * 把一行的方块按水平填补规则重新排布（变体玩法用）。
    * CENTER：左半区向右压实、右半区向左压实（两侧向中间靠拢）
    * LEFT / RIGHT：整行压向一侧
    * @param {Array<Block|null>} row
@@ -540,15 +609,8 @@ export class Board {
     const rightItems = [];
     for (let c = mid; c < w; c++) if (row[c]) rightItems.push(row[c]);
 
-    // 左半区靠右（贴着中线）
-    for (let k = 0; k < leftItems.length; k++) {
-      out[mid - leftItems.length + k] = leftItems[k];
-    }
-    // 右半区靠左（贴着中线）
-    for (let k = 0; k < rightItems.length; k++) {
-      out[mid + k] = rightItems[k];
-    }
-
+    for (let k = 0; k < leftItems.length; k++) out[mid - leftItems.length + k] = leftItems[k];
+    for (let k = 0; k < rightItems.length; k++) out[mid + k] = rightItems[k];
     return out;
   }
 
@@ -592,6 +654,10 @@ export class Board {
           b.spin = p * 1.6;
           if (p >= 1) { b.scale = 0; b.alpha = 0; b.anim = null; }
           break;
+        case 'drop':
+          b.oy = a.fromY * (1 - easeOutCubic(p));
+          if (p >= 1) { b.oy = 0; b.anim = null; }
+          break;
         case 'slide':
           b.ox = a.fromX * (1 - easeOutCubic(p));
           if (p >= 1) { b.ox = 0; b.anim = null; }
@@ -631,7 +697,10 @@ export class Board {
 
       case BOARD_STATE.COLLAPSING:
         this.animT += dt;
-        if (this.animT >= this.animDur) this.state = BOARD_STATE.SETTLING;
+        // 横向合拢带负延迟，必须等所有方块的动画都跑完
+        if (this.animT >= this.animDur && !this.grid.some((b) => b && b.anim)) {
+          this.state = BOARD_STATE.SETTLING;
+        }
         break;
 
       case BOARD_STATE.FLIPPING:

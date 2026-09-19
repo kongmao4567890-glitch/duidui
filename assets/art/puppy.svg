@@ -1,0 +1,28 @@
+<!-- 旺财：右下角纯装饰小狗 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="dog" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f2c98a"/><stop offset="1" stop-color="#c9924c"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="60" cy="112" rx="34" ry="7" fill="#000" opacity="0.28"/>
+  <!-- 身体 -->
+  <ellipse cx="60" cy="86" rx="30" ry="24" fill="url(#dog)"/>
+  <ellipse cx="60" cy="92" rx="18" ry="15" fill="#fff5e0"/>
+  <!-- 尾巴 -->
+  <path d="M88 82 q18 -6 14 -24" stroke="#c9924c" stroke-width="9" fill="none" stroke-linecap="round"/>
+  <!-- 耳朵 -->
+  <ellipse cx="32" cy="44" rx="11" ry="19" fill="#a8763a" transform="rotate(-18 32 44)"/>
+  <ellipse cx="88" cy="44" rx="11" ry="19" fill="#a8763a" transform="rotate(18 88 44)"/>
+  <!-- 头 -->
+  <circle cx="60" cy="46" r="29" fill="url(#dog)"/>
+  <ellipse cx="60" cy="58" rx="19" ry="15" fill="#fff5e0"/>
+  <ellipse cx="49" cy="42" rx="6" ry="7" fill="#3a2418"/>
+  <ellipse cx="71" cy="42" rx="6" ry="7" fill="#3a2418"/>
+  <circle cx="51" cy="39.5" r="2.2" fill="#fff"/>
+  <circle cx="73" cy="39.5" r="2.2" fill="#fff"/>
+  <ellipse cx="60" cy="55" rx="6" ry="4.5" fill="#3a2418"/>
+  <path d="M60 59 v5 M60 64 q-7 5 -12 0 M60 64 q7 5 12 0" stroke="#8a5528" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <!-- 舌头 -->
+  <ellipse cx="60" cy="70" rx="5" ry="6" fill="#ff7d95"/>
+</svg>

@@ -1,0 +1,29 @@
+{
+  "name": "对对碰",
+  "short_name": "对对碰",
+  "description": "经典点击消除玩法：上下左右相连的同色方块，两个起消。消除后同一行的方块向中间靠拢，一次消得越多分数越高。",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#06080f",
+  "theme_color": "#0d1b2f",
+  "categories": ["games", "puzzle", "entertainment"],
+  "icons": [
+    { "src": "assets/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "assets/icons/icon-48.png", "sizes": "48x48", "type": "image/png" },
+    { "src": "assets/icons/icon-96.png", "sizes": "96x96", "type": "image/png" },
+    { "src": "assets/icons/icon-144.png", "sizes": "144x144", "type": "image/png" },
+    { "src": "assets/icons/icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "继续闯关", "short_name": "闯关", "url": "./index.html?mode=campaign" },
+    { "name": "自由模式", "short_name": "自由", "url": "./index.html?mode=free" }
+  ]
+}
