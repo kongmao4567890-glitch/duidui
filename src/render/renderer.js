@@ -38,6 +38,21 @@ export class Renderer {
 
     this.shakeTime = 0;
     this.shakeMag = 0;
+
+    /**
+     * 'padded' = 自己画金色外框、四周留边（手机版式用）
+     * 'exact'  = 棋盘精确铺满画布、不画外框也不画底纹
+     *            （原版还原舞台用：外框与底纹都已经画在底板图上了）
+     */
+    this.fitMode = 'padded';
+  }
+
+  /** 切换画布（在两套版式之间切换时用） */
+  setCanvas(canvas) {
+    if (!canvas || canvas === this.canvas) return;
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d', { alpha: true });
+    clearSpriteCache();
   }
 
   /** 屏幕震动（大消除时的打击感） */
@@ -78,6 +93,16 @@ export class Renderer {
     this.height = h;
 
     if (!board) return;
+
+    if (this.fitMode === 'exact') {
+      // 画布尺寸就是棋盘尺寸，精确对齐底板上的棋盘位置
+      this.cell = Math.min(w / board.cols, h / board.rows);
+      this.originX = (w - this.cell * board.cols) / 2;
+      this.originY = (h - this.cell * board.rows) / 2;
+      this.frame = 0;
+      return;
+    }
+
     // 棋盘外框留出一圈边距
     const frame = Math.max(6, Math.min(w, h) * 0.022);
     const availW = w - frame * 2;
@@ -141,8 +166,10 @@ export class Renderer {
 
     if (!board) { ctx.restore(); return; }
 
-    this._drawFrame(board);
-    this._drawCells(board);
+    if (this.fitMode !== 'exact') {
+      this._drawFrame(board);
+      this._drawCells(board);
+    }
     this._drawBlocks(game, board);
     this._drawSelection(game, board);
     this._drawHint(board);

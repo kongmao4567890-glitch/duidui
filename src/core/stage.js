@@ -132,9 +132,10 @@ export function achievableScore(colors, cells, magicRate = 0, stoneRate = 0) {
   const c = clamp(colors, 3, 7);
   const per = (PER_CELL_SCORE[c] ?? 25) * colorScoreFactor(c);
   // 顽石消不掉，还会把色块切断，是纯粹的阻碍；
-  // 魔术方块则是白送的万能牌 —— 换色不要钱，会用的人能靠它把两片色块接起来，
-  // 实测每 1% 的魔术方块能把可达分抬高约 8%。
-  const effective = cells * (1 - stoneRate * 2.2) * (1 + magicRate * 8);
+  // 魔术方块则是白送的万能牌 —— 换色不要钱，会用的人能靠它把两片色块接起来。
+  // 系数由 tools/balance.mjs 在固定 10×10 棋盘上回归得出：
+  // 每 1% 的魔术方块把可达分抬高约 2.6%。
+  const effective = cells * (1 - stoneRate * 2.2) * (1 + magicRate * 2.6);
   return Math.max(500, effective * per);
 }
 

@@ -267,7 +267,66 @@ const resultScore = await page.locator('#resultScore').textContent();
 ok(/[\d,]+/.test(resultScore), `结算分数：${resultScore}`);
 await shot('13-结算'); lap('整局');
 
-console.log('\n【11】横屏三栏布局');
+console.log('\n【11】原版还原舞台');
+await page.setViewportSize({ width: 1180, height: 720 });
+await page.waitForTimeout(500);
+const stage = await page.evaluate(() => {
+  const app = window.__duidui;
+  const st = document.querySelector('.stage');
+  const r = st.getBoundingClientRect();
+  const cv = document.getElementById('stageBoard').getBoundingClientRect();
+  const bg = document.querySelector('.stage-bg');
+  return {
+    mode: app.viewMode,
+    bodyClass: document.body.className,
+    scale: app.stageView.scale,
+    stageVisible: r.width > 100 && r.height > 100,
+    canvasIsStage: app.renderer.canvas.id === 'stageBoard',
+    fitMode: app.renderer.fitMode,
+    bgLoaded: bg.complete && bg.naturalWidth === 680,
+    counters: document.querySelectorAll('#stCounter .cc-item').length,
+    // 棋盘必须精确贴在底板的棋盘区上：左上角相对舞台应为 (7,130)×缩放
+    offX: Math.round((cv.left - r.left) / app.stageView.scale),
+    offY: Math.round((cv.top - r.top) / app.stageView.scale),
+    cellPx: Math.round(app.renderer.cell / app.stageView.scale)
+  };
+});
+ok(stage.mode === 'stage', `横屏自动切到原版还原（实际 ${stage.mode}）`);
+ok(stage.stageVisible && stage.scale > 0.6, `舞台按 ${stage.scale?.toFixed(2)} 倍等比缩放显示`);
+ok(stage.canvasIsStage && stage.fitMode === 'exact', '渲染器切到舞台画布并使用精确铺满模式');
+ok(stage.bgLoaded, '680×580 的原版底板已加载');
+ok(stage.counters === 5, `计数条有 5 种方块（实际 ${stage.counters}）`);
+ok(stage.offX === 7 && stage.offY === 130,
+   `棋盘精确落在底板的棋盘区 (7,130)（实际 ${stage.offX},${stage.offY}）`);
+ok(stage.cellPx === 40, `格子边长还原为原版的 40px（实际 ${stage.cellPx}）`);
+await shot('16-原版还原');
+
+// 能点、能消 —— 上一节已经把棋盘打空了，先重开一关
+await page.evaluate(() => {
+  // 结算弹层开着的时候主循环是暂停的，不关掉就永远进不了 playing
+  window.__duidui.screens.close('result');
+  window.__duidui.handle('retryStage');
+});
+await page.waitForFunction(() => window.__duidui?.game?.phase === 'playing', null, { timeout: 12000 });
+await page.waitForTimeout(400);
+const beforeStage = await page.evaluate(() => window.__duidui.game.board.remaining);
+await page.evaluate(() => { window.__duidui.settings.confirmTap = false; });
+const stageTap = await page.evaluate(() => {
+  const app = window.__duidui, b = app.game.board, r = app.renderer;
+  const rect = app.renderer.canvas.getBoundingClientRect();
+  const g = b.allGroups()[0];
+  const c = r.cellCenter(b.colOf(g[0]), b.rowOf(g[0]));
+  return { x: rect.left + c.x, y: rect.top + c.y, size: g.length };
+});
+await page.mouse.click(stageTap.x, stageTap.y);
+await page.waitForTimeout(900);
+const afterStage = await page.evaluate(() => window.__duidui.game.board.remaining);
+ok(afterStage === beforeStage - stageTap.size,
+   `在舞台上点击能正确消除（${beforeStage} → ${afterStage}，消了 ${stageTap.size} 个）`);
+lap('原版还原');
+
+console.log('\n【11b】横屏手机版式（强制）');
+await page.evaluate(() => { window.__duidui.settings.view = 'mobile'; window.__duidui.applyViewMode(true); });
 await page.setViewportSize({ width: 900, height: 480 });
 await page.waitForTimeout(400);
 const landscape = await page.evaluate(() => {
@@ -279,9 +338,8 @@ const landscape = await page.evaluate(() => {
 ok(landscape.extra !== 'none', '横屏下右栏的统计与聊天显示出来');
 ok(landscape.strip === 'none', '横屏下底部对话条隐藏');
 ok(landscape.cols === 2, `横屏为「棋盘 + 信息栏」两栏（实际 ${landscape.cols} 栏）`);
-await page.locator('#screenResult .btn').first().click();
-await page.waitForTimeout(1600);
-await shot('14-横屏布局');
+await page.evaluate(() => { window.__duidui.settings.view = 'auto'; });
+await shot('14-横屏手机版式');
 
 console.log('\n【12】超窄屏');
 await page.setViewportSize({ width: 320, height: 568 });

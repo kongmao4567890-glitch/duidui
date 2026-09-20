@@ -12,6 +12,7 @@ import { Renderer } from './render/renderer.js';
 import { audio } from './audio/audio.js';
 import { storage } from './platform/storage.js';
 import { Hud } from './ui/hud.js';
+import { StageView, STAGE_W, STAGE_H } from './ui/stage.js';
 import { Screens } from './ui/screens.js';
 import { $, vibrate } from './ui/dom.js';
 import { ITEM_META } from './core/config.js';
@@ -26,6 +27,7 @@ class App {
     this.game.items = { ...storage.items };
 
     this.canvas = $('board');
+    this.stageCanvas = $('stageBoard');
     this.renderer = new Renderer(this.canvas, {
       showGrid: this.settings.showGrid,
       showCount: this.settings.showCount,
@@ -34,6 +36,8 @@ class App {
     this.renderer.particles.enabled = this.settings.particles;
 
     this.hud = new Hud(this.game);
+    this.stageView = new StageView(this.game);
+    this.viewMode = null;
     this.screens = new Screens({
       game: this.game,
       storage,
@@ -73,6 +77,50 @@ class App {
     this.registerServiceWorker();
   }
 
+  /**
+   * 决定用哪套版式。
+   * 原版舞台是 680×580 的固定画面，塞进竖屏手机会小到点不准，
+   * 所以默认「自动」：横屏且够宽时用原版还原，否则用手机版式。
+   */
+  pickViewMode() {
+    // 底板上的棋盘区是按原版的 10×10 抠出来的，换了棋盘尺寸就对不上位
+    const b = this.game.board;
+    if (b && (b.cols !== 10 || b.rows !== 10)) return 'mobile';
+
+    const pref = this.settings.view || 'auto';
+    if (pref === 'stage' || pref === 'mobile') return pref;
+    const w = window.innerWidth, h = window.innerHeight;
+    const portrait = h >= w;
+    // 竖屏时按钮排在舞台下方，横屏时排在右侧，可用空间不一样
+    const availW = w - (portrait ? 16 : 110);
+    const availH = h - (portrait ? 76 : 20);
+    const fit = Math.min(availW / STAGE_W, availH / STAGE_H);
+    // 缩到 0.62 以下方块就不足 25px，手指点不准，那还不如用手机版式
+    return fit >= 0.62 ? 'stage' : 'mobile';
+  }
+
+  applyViewMode(force = false) {
+    const mode = this.pickViewMode();
+    if (mode === this.viewMode && !force) {
+      if (mode === 'stage') this.stageView.layout();
+      return;
+    }
+    this.viewMode = mode;
+    document.body.classList.toggle('mode-stage', mode === 'stage');
+
+    if (mode === 'stage') {
+      this.renderer.setCanvas(this.stageCanvas);
+      this.renderer.fitMode = 'exact';
+      this.stageView.layout();
+      this.stageView.onStageStart();
+      this.stageView.updateItems();
+    } else {
+      this.renderer.setCanvas(this.canvas);
+      this.renderer.fitMode = 'padded';
+    }
+    this.needResize = true;
+  }
+
   applySettings() {
     const s = this.settings;
     audio.setSound(s.sound);
@@ -83,6 +131,7 @@ class App {
       colorMark: s.colorMark,
       particles: s.particles
     });
+    this.applyViewMode(true);
     this.needResize = true;
   }
 
@@ -97,6 +146,7 @@ class App {
       this.renderer.reset();
       this.renderer.setTheme(stage.chapter);
       this.hud.onStageStart();
+      this.stageView.onStageStart();
       this.needResize = true;
       audio.startMusic(stage.chapter.id);
       this.screens.showIntro(stage);
@@ -117,7 +167,10 @@ class App {
       if (info.reason === 'hammer') audio.hammer();
       else audio.remove(info.size);
       if (this.settings.vibrate) vibrate(Math.min(60, 10 + info.size * 4));
-      if (info.size >= 10) this.hud.banner(`${info.size} 连消！`, 900);
+      if (info.size >= 10) {
+        this.hud.banner(`${info.size} 连消！`, 900);
+        this.stageView.banner(`${info.size} 连消！`, 900);
+      }
     });
 
     bus.on('board:magic', ({ index }) => {
@@ -138,16 +191,19 @@ class App {
     bus.on('game:mission', ({ mission }) => {
       audio.mission();
       this.hud.banner('任务达成！', 1100);
+      this.stageView.banner('任务达成！', 1100);
       this.hud.toast(`任务达成：${mission.text}`, 2200);
     });
 
     bus.on('game:itemUsed', () => {
       this.hud.updateItems();
+      this.stageView.updateItems();
       storage.setItems(g.items);
     });
 
     bus.on('game:itemArmed', ({ key, armed }) => {
       this.hud.updateItems();
+      this.stageView.updateItems();
       if (armed) this.hud.toast(`${ITEM_META[key].icon} ${ITEM_META[key].desc}`, 2000);
     });
 
@@ -190,21 +246,15 @@ class App {
   // ==================== 输入 ====================
 
   bindInput() {
-    const canvas = this.canvas;
+    // 两套版式各有一块画布，事件都要绑上
+    for (const c of [this.canvas, this.stageCanvas]) {
+      if (c) this._bindCanvas(c);
+    }
+    this._bindButtons();
+  }
 
-    // 首次交互解锁音频（手机浏览器的硬性要求）
-    const unlock = () => {
-      if (audio.unlock()) {
-        audio.setSound(this.settings.sound);
-        audio.setMusic(this.settings.music);
-        if (this.game.stage) audio.startMusic(this.game.stage.chapter.id);
-      }
-      document.removeEventListener('pointerdown', unlock);
-    };
-    document.addEventListener('pointerdown', unlock, { once: true });
+  _bindCanvas(canvas) {
 
-    // 棋盘点击：用 pointerup 而不是 pointerdown，
-    // 这样手指按下后滑开可以取消，避免误触
     let downIdx = -1;
     let downPos = null;
     // 这一次按下之前，该格是否已经处于选中状态。
@@ -233,6 +283,19 @@ class App {
 
     canvas.addEventListener('pointercancel', () => { downIdx = -1; downPos = null; wasSelected = false; });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+
+  _bindButtons() {
+    // 首次交互解锁音频（手机浏览器的硬性要求）
+    const unlock = () => {
+      if (audio.unlock()) {
+        audio.setSound(this.settings.sound);
+        audio.setMusic(this.settings.music);
+        if (this.game.stage) audio.startMusic(this.game.stage.chapter.id);
+      }
+      document.removeEventListener('pointerdown', unlock);
+    };
+    document.addEventListener('pointerdown', unlock, { once: true });
 
     // 道具按钮
     for (const key of ['hammer', 'transform', 'hint']) {
@@ -253,6 +316,14 @@ class App {
     };
 
     click('btnPause', () => this.pause());
+    // 原版舞台上的道具与按钮
+    const armFromStage = (key) => { this.game.armItem(key); this.hud.updateItems(); this.stageView.updateItems(); };
+    click('stToolDelete', () => armFromStage('hammer'));
+    click('stToolTransform', () => armFromStage('transform'));
+    click('stHint', () => armFromStage('hint'));
+    click('stHelp', () => this.screens.showHelp());
+    click('stOptions', () => { this.pause(); this.screens.close('pause'); this.screens.showSettings(); });
+    click('stExit', () => this.pause());
     click('btnOptions', () => { this.pause(); this.screens.close('pause'); this.screens.showSettings(); });
     click('btnExit', () => this.pause());
     click('btnHelp', () => this.screens.showHelp());
@@ -302,7 +373,11 @@ class App {
     let resizeTimer = null;
     const onResize = () => {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => { this.needResize = true; clearSpriteCache(); }, 80);
+      resizeTimer = setTimeout(() => {
+        this.applyViewMode();
+        this.needResize = true;
+        clearSpriteCache();
+      }, 80);
     };
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', onResize);
@@ -339,6 +414,18 @@ class App {
       audio.setMusic(v);
       if (v && this.game.stage) audio.startMusic(this.game.stage.chapter.id);
     });
+
+    const viewSel = $('setView');
+    if (viewSel) {
+      viewSel.addEventListener('change', () => {
+        storage.updateSettings({ view: viewSel.value });
+        this.settings = storage.settings;
+        this.game.settings = this.settings;
+        this.applyViewMode(true);
+        const mode = this.viewMode === 'stage' ? '原版还原' : '手机版式';
+        this.hud.toast(`已切换到${mode}`, 1600);
+      });
+    }
 
     const sel = $('setBoard');
     if (sel) {
@@ -400,7 +487,7 @@ class App {
 
   /** 把指针事件换算成棋盘格索引 */
   pickCell(e) {
-    const rect = this.canvas.getBoundingClientRect();
+    const rect = this.renderer.canvas.getBoundingClientRect();
     return this.renderer.hitTest(e.clientX - rect.left, e.clientY - rect.top, this.game.board);
   }
 
@@ -441,6 +528,7 @@ class App {
         this.game.items = { ...storage.items };
         this.game.start(MODE.CAMPAIGN, arg || 1);
         this.hud.updateItems();
+        this.stageView.updateItems();
         break;
       case 'startFree':
         this._reachedShown = false;
@@ -506,7 +594,10 @@ class App {
     if (g.board) {
       if (!blocking) g.update(dt);
       this.renderer.draw(g, dt);
-      if (!blocking) this.hud.update();
+      if (!blocking) {
+        this.hud.update();
+        if (this.viewMode === 'stage') this.stageView.update();
+      }
     }
   }
 

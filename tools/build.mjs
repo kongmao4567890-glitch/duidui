@@ -18,7 +18,11 @@ const ITEMS = [
   'src',
   'assets/icons',
   'assets/blocks',
-  'assets/art'
+  'assets/stage',
+  'assets/art/hood.svg',
+  'assets/art/monkey.svg',
+  'assets/art/piggy.svg',
+  'assets/art/puppy.svg'
 ];
 
 await rm(dist, { recursive: true, force: true });

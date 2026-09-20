@@ -342,6 +342,9 @@ export class Screens {
     bind('setSound', 'sound');
     bind('setMusic', 'music');
 
+    const viewSel = $('setView');
+    if (viewSel) viewSel.value = s.view || 'auto';
+
     const sel = $('setBoard');
     if (sel && !sel.dataset.built) {
       clear(sel);

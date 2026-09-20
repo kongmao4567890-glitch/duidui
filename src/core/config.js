@@ -97,13 +97,17 @@ export const STAGE = {
    * 难度稳定上升，第 1 关的目标分依然是原版的 2500。
    */
   pressureBase: 0.222,   // 标定为「第 1 关目标分 = 原版录屏里的 1000」
-  pressureStep: 0.040,
+  pressureStep: 0.050,
   pressureMax: 0.90,
   /** 目标分的硬上限：不得超过可达分的这个比例，防止单调化把关卡顶成必输 */
   hardCap: 0.80,
-  /** 棋盘随关卡长高，给后期更高的分数天花板 */
+  /**
+   * 原版棋盘固定 10×10 —— 原版还原舞台的底板是按这个尺寸抠的，
+   * 棋盘变大就对不上位了。难度改由难度压强、顽石与任务推进。
+   * 想玩更大的棋盘，把 maxExtraRows 调大即可（会自动切到手机版式）。
+   */
   rowEveryStages: 5,
-  maxExtraRows: 4,
+  maxExtraRows: 0,
   /**
    * 原版从头到尾就是 5 种方块（棋盘顶部的计数条只有 5 格），
    * 所以这里固定 5 色，难度交给棋盘变大、顽石与任务目标去推进。
@@ -158,6 +162,7 @@ export const TRANSFORM_SHAPE = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]];
 /** 默认设置 */
 export const DEFAULT_SETTINGS = {
   board: 'standard',
+  view: 'auto',         // auto = 横屏用原版还原、竖屏用手机版式；stage / mobile 可强制
   collapse: 'gravity',  // gravity = 原版（上方落下 + 空列左移）；center/left/right 为变体
   sound: true,
   music: true,

@@ -9,3 +9,6 @@ android/local.properties
 android/app/release/
 *.keystore
 !debug.keystore
+
+# 素材提取的中间产物（体积大，需要时用 npm run stage 重新生成）
+assets/art/original/frame-clean.png

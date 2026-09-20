@@ -1,12 +1,24 @@
 /**
  * 音频系统
  * ------------------------------------------------------------------
- * 全部用 Web Audio API 实时合成，不依赖任何音频文件 ——
- * 安装包里一个 mp3 都没有，也就没有加载等待和版权问题。
+ * 全部用 Web Audio API 实时合成，安装包里一个音频文件都没有。
  *
- * 手机浏览器要求「用户第一次触摸之后」才能播放声音，
- * 所以这里做了 unlock()，由第一次点击触发。
+ * 音效的参数不是拍脑袋调的 —— 是把原版录屏的音轨扒出来，
+ * 减掉背景音乐后做频谱分析量出来的：
+ *   · 消除音：242 / 308 / 362 Hz 的大三和弦（≈B3-D#4-F#4），
+ *             中频占四成、高频占三成，起音极快、约 250ms 衰减
+ *   · 点击音：3.4 kHz 的短促 tick
+ * 背景音乐是《Clarinet Polka》，音符同样扒自录屏（见 tune.js）。
+ *
+ * 手机浏览器要求「用户第一次触摸之后」才能出声，所以有 unlock()。
  */
+
+import { MELODY, CHORDS, STEP, STEPS_PER_BAR, TOTAL_STEPS, freq, CHAPTER_STYLE } from './tune.js';
+
+/** 消除音效的和弦频率（实测值） */
+const CLEAR_CHORD = [242, 308, 362];
+/** 点击音的频率（实测值） */
+const TICK_FREQ = 3426;
 
 export class AudioEngine {
   constructor() {
@@ -17,9 +29,15 @@ export class AudioEngine {
     this.unlocked = false;
     this.soundOn = true;
     this.musicOn = true;
-    this.musicTimer = null;
-    this.musicStep = 0;
-    this.currentScale = null;
+
+    // 音乐调度
+    this.playing = false;
+    this.step = 0;              // 已排到第几步
+    this.nextTime = 0;          // 下一步的绝对时间
+    this.timer = null;
+    this.style = CHAPTER_STYLE.dusk;
+    this._noteIndex = 0;        // 旋律读到第几个音符
+    this._noteLeft = 0;         // 当前音符还剩几步
   }
 
   /** 首次用户交互时调用，解锁音频上下文 */
@@ -34,11 +52,11 @@ export class AudioEngine {
       this.master.connect(this.ctx.destination);
 
       this.sfxGain = this.ctx.createGain();
-      this.sfxGain.gain.value = this.soundOn ? 0.75 : 0;
+      this.sfxGain.gain.value = this.soundOn ? 0.8 : 0;
       this.sfxGain.connect(this.master);
 
       this.musicGain = this.ctx.createGain();
-      this.musicGain.gain.value = this.musicOn ? 0.2 : 0;
+      this.musicGain.gain.value = this.musicOn ? 0.17 : 0;
       this.musicGain.connect(this.master);
 
       this.unlocked = true;
@@ -56,33 +74,32 @@ export class AudioEngine {
 
   setSound(on) {
     this.soundOn = on;
-    if (this.sfxGain) this.sfxGain.gain.value = on ? 0.75 : 0;
+    if (this.sfxGain) this.sfxGain.gain.value = on ? 0.8 : 0;
   }
 
   setMusic(on) {
     this.musicOn = on;
-    if (this.musicGain) this.musicGain.gain.value = on ? 0.2 : 0;
-    if (on) this.startMusic(); else this.stopMusic();
+    if (this.musicGain) this.musicGain.gain.value = on ? 0.17 : 0;
+    if (on) this.startMusic(this._chapter); else this.stopMusic();
   }
 
   // ==================== 基础发声单元 ====================
 
   /**
    * 一个带包络的振荡器音符
-   * @param {object} o
    */
-  _tone({ freq = 440, dur = 0.18, type = 'sine', gain = 0.3, delay = 0, slide = 0, dest = null }) {
-    if (!this.unlocked || !this.soundOn) return;
+  _tone({ freq: f = 440, dur = 0.18, type = 'sine', gain = 0.3, delay = 0, slide = 0, dest = null, attack = 0.006 }) {
+    if (!this.unlocked || (!this.soundOn && dest !== this.musicGain)) return;
     const ctx = this.ctx;
     const t0 = ctx.currentTime + delay;
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
     osc.type = type;
-    osc.frequency.setValueAtTime(freq, t0);
-    if (slide) osc.frequency.exponentialRampToValueAtTime(Math.max(20, freq * slide), t0 + dur);
+    osc.frequency.setValueAtTime(f, t0);
+    if (slide) osc.frequency.exponentialRampToValueAtTime(Math.max(20, f * slide), t0 + dur);
 
     g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(gain, t0 + Math.min(0.02, dur * 0.2));
+    g.gain.exponentialRampToValueAtTime(gain, t0 + Math.min(attack, dur * 0.3));
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
 
     osc.connect(g);
@@ -91,8 +108,8 @@ export class AudioEngine {
     osc.stop(t0 + dur + 0.02);
   }
 
-  /** 一段噪声（用于碎裂、敲击） */
-  _noise({ dur = 0.12, gain = 0.2, delay = 0, filter = 1800, type = 'lowpass' }) {
+  /** 一段噪声（用于消除时的高频瞬态与敲击） */
+  _noise({ dur = 0.12, gain = 0.2, delay = 0, filter = 1800, type = 'bandpass', q = 1 }) {
     if (!this.unlocked || !this.soundOn) return;
     const ctx = this.ctx;
     const t0 = ctx.currentTime + delay;
@@ -106,6 +123,7 @@ export class AudioEngine {
     const bq = ctx.createBiquadFilter();
     bq.type = type;
     bq.frequency.value = filter;
+    bq.Q.value = q;
     const g = ctx.createGain();
     g.gain.setValueAtTime(gain, t0);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
@@ -116,161 +134,237 @@ export class AudioEngine {
 
   // ==================== 游戏音效 ====================
 
-  /** 选中一组 */
+  /** 选中一组：高频短 tick，越大的组音越高 */
   select(size = 2) {
-    const base = 520 + Math.min(12, size) * 26;
-    this._tone({ freq: base, dur: 0.07, type: 'triangle', gain: 0.22 });
+    this._tone({
+      freq: TICK_FREQ * (0.88 + Math.min(10, size) * 0.02),
+      dur: 0.045, type: 'square', gain: 0.1, attack: 0.002
+    });
+    this._noise({ dur: 0.03, gain: 0.05, filter: 5200, q: 2 });
   }
 
   /** 点到无法消除的方块 */
   deny() {
-    this._tone({ freq: 190, dur: 0.11, type: 'square', gain: 0.12, slide: 0.7 });
+    this._tone({ freq: 190, dur: 0.11, type: 'square', gain: 0.11, slide: 0.7 });
   }
 
   /**
-   * 消除：组越大，音阶爬得越高、越热闹
+   * 消除：实测的大三和弦，组越大整体移调越高、尾音越长
    * @param {number} size 这一组的方块数
    */
   remove(size) {
-    const n = Math.min(10, Math.max(2, size));
-    const scale = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21];
-    const root = 392;   // G4
-    for (let i = 0; i < Math.min(n, 6); i++) {
-      const semi = scale[Math.min(scale.length - 1, i + Math.max(0, n - 4))];
+    const n = Math.min(14, Math.max(2, size));
+    // 组越大越往上移调（每多 2 个升一个半音左右）
+    const shift = Math.pow(2, (n - 2) / 24);
+    const dur = 0.22 + Math.min(0.26, n * 0.02);
+
+    CLEAR_CHORD.forEach((f, i) => {
       this._tone({
-        freq: root * Math.pow(2, semi / 12),
-        dur: 0.16 + i * 0.012,
-        type: 'triangle',
-        gain: 0.2 - i * 0.018,
-        delay: i * 0.035
+        freq: f * shift, dur: dur * (1 - i * 0.08),
+        type: i === 0 ? 'triangle' : 'sine',
+        gain: 0.26 - i * 0.05, attack: 0.004
       });
-    }
-    this._noise({ dur: 0.1 + n * 0.012, gain: 0.1 + n * 0.012, filter: 1200 + n * 260 });
+      // 每个音加一个八度泛音，还原原版那种亮闪闪的质感
+      this._tone({
+        freq: f * shift * 2, dur: dur * 0.55, type: 'sine',
+        gain: 0.09 - i * 0.02, delay: 0.004, attack: 0.003
+      });
+    });
+
+    // 高频瞬态：实测高频段占三成以上
+    this._noise({ dur: 0.09 + n * 0.006, gain: 0.16, filter: 3200, type: 'bandpass', q: 0.8 });
+
+    // 一次消很多时，补一记低音增加分量
     if (n >= 8) {
-      // 大消除额外补一记低音，给足打击感
-      this._tone({ freq: 98, dur: 0.34, type: 'sine', gain: 0.3, delay: 0.04, slide: 0.6 });
+      this._tone({ freq: 121 * shift, dur: 0.34, type: 'sine', gain: 0.24, delay: 0.02, slide: 0.75 });
+    }
+    // 特大组再叠一串上行琶音
+    if (n >= 11) {
+      [0, 4, 7, 12].forEach((s, i) => {
+        this._tone({
+          freq: CLEAR_CHORD[0] * shift * 2 * Math.pow(2, s / 12),
+          dur: 0.18, type: 'triangle', gain: 0.1, delay: 0.06 + i * 0.045
+        });
+      });
     }
   }
 
   /** 魔术方块换色 */
   magic() {
     for (let i = 0; i < 4; i++) {
-      this._tone({
-        freq: 660 * Math.pow(2, i / 12 * 2),
-        dur: 0.12, type: 'sine', gain: 0.14, delay: i * 0.03
-      });
+      this._tone({ freq: 660 * Math.pow(2, i / 6), dur: 0.11, type: 'sine', gain: 0.12, delay: i * 0.028 });
     }
   }
 
-  /** 榔头敲击 */
+  /** 删除道具 */
   hammer() {
-    this._noise({ dur: 0.18, gain: 0.34, filter: 700 });
-    this._tone({ freq: 140, dur: 0.16, type: 'square', gain: 0.22, slide: 0.45 });
+    this._noise({ dur: 0.16, gain: 0.3, filter: 900, type: 'lowpass' });
+    this._tone({ freq: 150, dur: 0.15, type: 'square', gain: 0.2, slide: 0.45 });
   }
 
   /** 变换道具 */
   transform() {
     for (let i = 0; i < 6; i++) {
-      this._tone({ freq: 440 + i * 90, dur: 0.1, type: 'sine', gain: 0.12, delay: i * 0.025 });
+      this._tone({ freq: 420 + i * 95, dur: 0.1, type: 'sine', gain: 0.11, delay: i * 0.024 });
     }
   }
 
   /** 任务达成 */
   mission() {
     [0, 4, 7, 12].forEach((s, i) => {
-      this._tone({ freq: 523.25 * Math.pow(2, s / 12), dur: 0.26, type: 'triangle', gain: 0.2, delay: i * 0.08 });
+      this._tone({ freq: 523.25 * Math.pow(2, s / 12), dur: 0.26, type: 'triangle', gain: 0.18, delay: i * 0.08 });
     });
   }
 
   /** 按钮 */
   click() {
-    this._tone({ freq: 760, dur: 0.05, type: 'square', gain: 0.1 });
+    this._tone({ freq: 760, dur: 0.045, type: 'square', gain: 0.09 });
   }
 
-  /** 过关 */
+  /** 过关：用主题曲开头那几个音收尾，和 BGM 呼应 */
   win() {
-    const notes = [0, 4, 7, 12, 16, 19];
-    notes.forEach((s, i) => {
-      this._tone({ freq: 392 * Math.pow(2, s / 12), dur: 0.42, type: 'triangle', gain: 0.24, delay: i * 0.1 });
+    [72, 76, 79, 84, 88, 91].forEach((m, i) => {
+      this._tone({ freq: freq(m), dur: 0.4, type: 'square', gain: 0.2, delay: i * 0.1 });
     });
   }
 
   /** 失败 */
   lose() {
-    [0, -2, -5, -9].forEach((s, i) => {
-      this._tone({ freq: 392 * Math.pow(2, s / 12), dur: 0.42, type: 'sine', gain: 0.2, delay: i * 0.15, slide: 0.9 });
+    [67, 65, 62, 58].forEach((m, i) => {
+      this._tone({ freq: freq(m), dur: 0.42, type: 'triangle', gain: 0.18, delay: i * 0.15, slide: 0.92 });
     });
   }
 
-  /** 倒数 / 警告 */
   warn() {
-    this._tone({ freq: 880, dur: 0.1, type: 'square', gain: 0.14 });
+    this._tone({ freq: 880, dur: 0.1, type: 'square', gain: 0.13 });
   }
 
   // ==================== 背景音乐 ====================
 
   /**
-   * 极简程序化 BGM：在一个音阶上随机漫步的琶音，
-   * 配上低音铺底，循环但不容易听腻。
-   * @param {string} chapterId 章节 id，决定调式与音色
+   * 开始播放《Clarinet Polka》。
+   * 用「预排队 + 前瞻」的方式调度：每 25ms 醒一次，把未来 120ms
+   * 内该响的音符按绝对时间排好，这样节奏不会被主线程卡顿带跑。
+   * @param {string} chapterId 章节 id，决定移调与音色
    */
-  startMusic(chapterId = 'forest') {
+  startMusic(chapterId = 'dusk') {
+    this._chapter = chapterId;
+    this.style = CHAPTER_STYLE[chapterId] || CHAPTER_STYLE.dusk;
     if (!this.unlocked || !this.musicOn) return;
+
     this.stopMusic();
-
-    // 不同章节用不同调式，营造气氛差异
-    const SCALES = {
-      forest: { root: 261.63, steps: [0, 2, 3, 5, 7, 8, 10], wave: 'triangle' },   // 自然小调
-      candy:  { root: 293.66, steps: [0, 2, 4, 7, 9], wave: 'sine' },              // 大调五声
-      frost:  { root: 246.94, steps: [0, 2, 3, 7, 8], wave: 'sine' },              // 空灵
-      flame:  { root: 220.00, steps: [0, 1, 4, 5, 7, 8, 11], wave: 'sawtooth' },   // 和声小调
-      sky:    { root: 329.63, steps: [0, 2, 4, 6, 7, 9, 11], wave: 'triangle' },   // 利底亚
-      abyss:  { root: 196.00, steps: [0, 1, 3, 6, 8, 10], wave: 'sine' }           // 阴暗
-    };
-    const scale = SCALES[chapterId] || SCALES.forest;
-    this.currentScale = scale;
-    this.musicStep = 0;
-
-    const beat = 340;   // 毫秒
-    this.musicTimer = setInterval(() => {
-      if (!this.musicOn || !this.unlocked) return;
-      const s = this.musicStep++;
-      const deg = scale.steps[Math.floor(Math.random() * scale.steps.length)];
-      const oct = Math.random() < 0.25 ? 1 : 0;
-      const freq = scale.root * Math.pow(2, deg / 12 + oct);
-
-      this._musicNote(freq, 0.5, scale.wave, 0.16);
-      // 每四拍来一次低音
-      if (s % 4 === 0) this._musicNote(scale.root / 2, 0.85, 'sine', 0.2);
-      // 偶尔加一个五度和声
-      if (s % 8 === 3) this._musicNote(freq * 1.5, 0.4, scale.wave, 0.09);
-    }, beat);
+    this.playing = true;
+    this.step = 0;
+    this._noteIndex = 0;
+    this._noteLeft = 0;
+    this.nextTime = this.ctx.currentTime + 0.08;
+    this.timer = setInterval(() => this._schedule(), 25);
+    this._schedule();
   }
 
-  _musicNote(freq, dur, type, gain) {
-    if (!this.unlocked) return;
+  _schedule() {
+    if (!this.playing || !this.unlocked) return;
+    const ahead = this.ctx.currentTime + 0.12;
+    let guard = 0;
+    while (this.nextTime < ahead && guard++ < 64) {
+      this._playStep(this.step, this.nextTime);
+      this.nextTime += STEP;
+      this.step = (this.step + 1) % TOTAL_STEPS;
+      if (this.step === 0) { this._noteIndex = 0; this._noteLeft = 0; }
+    }
+  }
+
+  /** 排一步：该起新音就起，顺便铺「蹦嚓」伴奏 */
+  _playStep(step, when) {
+    const shift = this.style.shift;
+
+    // ── 主旋律
+    if (this._noteLeft <= 0) {
+      const note = MELODY[this._noteIndex % MELODY.length];
+      this._noteIndex++;
+      this._noteLeft = note[1];
+      this._melodyNote(freq(note[0] + shift), note[1] * STEP, when);
+    }
+    this._noteLeft--;
+
+    // ── 伴奏：每小节第 1 步低音，第 5 步和弦（波尔卡的「蹦—嚓」）
+    const bar = Math.floor(step / STEPS_PER_BAR) % CHORDS.length;
+    const inBar = step % STEPS_PER_BAR;
+    const chord = CHORDS[bar];
+    if (inBar === 0) {
+      this._bassNote(freq(chord.root + shift - 12), STEP * 2.2, when);
+    } else if (inBar === 4) {
+      chord.notes.forEach((m, i) => {
+        this._chordNote(freq(m + shift), STEP * 1.5, when, 0.055 - i * 0.008);
+      });
+    }
+  }
+
+  /** 单簧管味道的主旋律：方波过低通 + 轻微颤音 */
+  _melodyNote(f, dur, when) {
     const ctx = this.ctx;
-    const t0 = ctx.currentTime;
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
     const lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
-    lp.frequency.value = 2400;
-    osc.type = type;
-    osc.frequency.value = freq;
-    g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(gain, t0 + 0.04);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    lp.frequency.value = this.style.bright;
+    osc.type = this.style.wave;
+    osc.frequency.setValueAtTime(f, when);
+
+    // 颤音：长音才加，短音加了反而糊
+    if (dur > 0.3) {
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      lfo.frequency.value = 5.2;
+      lfoGain.gain.value = f * 0.006;
+      lfo.connect(lfoGain); lfoGain.connect(osc.frequency);
+      lfo.start(when); lfo.stop(when + dur);
+    }
+
+    const hold = Math.max(0.05, dur * 0.85);
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(0.14, when + 0.012);
+    g.gain.setValueAtTime(0.14, when + hold * 0.6);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + hold);
+
     osc.connect(lp); lp.connect(g); g.connect(this.musicGain);
-    osc.start(t0);
-    osc.stop(t0 + dur + 0.05);
+    osc.start(when);
+    osc.stop(when + hold + 0.03);
+  }
+
+  /** 低音「蹦」 */
+  _bassNote(f, dur, when) {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(f, when);
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(0.19, when + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    osc.connect(g); g.connect(this.musicGain);
+    osc.start(when); osc.stop(when + dur + 0.02);
+  }
+
+  /** 和弦「嚓」 */
+  _chordNote(f, dur, when, gain) {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 2000;
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(f, when);
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.01, gain), when + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    osc.connect(lp); lp.connect(g); g.connect(this.musicGain);
+    osc.start(when); osc.stop(when + dur + 0.02);
   }
 
   stopMusic() {
-    if (this.musicTimer) {
-      clearInterval(this.musicTimer);
-      this.musicTimer = null;
-    }
+    this.playing = false;
+    if (this.timer) { clearInterval(this.timer); this.timer = null; }
   }
 
   /** 页面切到后台时静音，回来再恢复 */

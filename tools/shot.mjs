@@ -62,7 +62,15 @@ allErrs.push(...await capture('p3-选中', { width: 412, height: 915 }, true, as
   });
   await page.waitForTimeout(400);
 }));
-allErrs.push(...await capture('l1-横屏游戏中', { width: 1180, height: 720 }, false, intoGame));
+allErrs.push(...await capture('l1-原版还原', { width: 1180, height: 720 }, false, intoGame));
+allErrs.push(...await capture('l2-原版还原-选中', { width: 1180, height: 720 }, false, async (page) => {
+  await intoGame(page);
+  await page.evaluate(() => {
+    const b = window.__duidui.game.board;
+    b.select(b.allGroups()[0][0]);
+  });
+  await page.waitForTimeout(400);
+}));
 allErrs.push(...await capture('p4-窄屏', { width: 320, height: 640 }, true, intoGame));
 
 await browser.close();

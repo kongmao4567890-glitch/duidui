@@ -143,6 +143,50 @@
   </div>
 </div>
 
+  <!-- ═══ 原版还原舞台（横屏/桌面启用）═══
+       底板是从原版录屏里抠出来的整块界面，会变的数字都已擦掉，
+       这里把数值按原坐标叠回去，做到像素级对位。舞台固定 680×580，
+       由 JS 等比缩放到当前视口。 -->
+  <div class="stage-wrap" id="stageWrap">
+    <div class="stage" id="stage">
+      <img class="stage-bg" src="assets/stage/stage-bg.png" alt="" draggable="false">
+
+      <!-- 棋盘：原版坐标 (7,130)，10×10 格，每格 40px -->
+      <canvas id="stageBoard" class="stage-board" aria-label="对对碰棋盘"></canvas>
+      <div class="stage-banner" id="stageBanner" hidden></div>
+
+      <!-- 各色剩余数量计数条 -->
+      <div class="st-counter" id="stCounter"></div>
+
+      <!-- 等级 -->
+      <div class="st-level" id="stLevel">01</div>
+
+      <!-- 目前得分 / 过关目标分数 -->
+      <div class="st-num st-score" id="stScore">0</div>
+      <div class="st-num st-target" id="stTarget">1000</div>
+
+      <!-- 道具：删除 / 变换 -->
+      <button class="st-tool st-tool-del" id="stToolDelete" type="button" aria-label="删除道具">
+        <span class="st-tool-count" id="stCountDelete">3</span>
+      </button>
+      <button class="st-tool st-tool-tr" id="stToolTransform" type="button" aria-label="变换道具">
+        <span class="st-tool-count" id="stCountTransform">3</span>
+      </button>
+
+      <!-- 游戏任务 -->
+      <div class="st-missions" id="stMissions"></div>
+      <div class="st-num st-reward" id="stReward">0</div>
+    </div>
+
+    <!-- 舞台之外的控制条（原版这几个按钮在大厅里，这里放在留白处） -->
+    <div class="stage-side">
+      <button class="foot-btn" id="stHint" type="button">提示 <i id="stCountHint">5</i></button>
+      <button class="foot-btn" id="stHelp" type="button">玩法</button>
+      <button class="foot-btn" id="stOptions" type="button">选项</button>
+      <button class="foot-btn" id="stExit" type="button">退出</button>
+    </div>
+  </div>
+
 <!-- ══════════════ 弹层 ══════════════ -->
 
 <!-- 标题页 -->
@@ -352,7 +396,15 @@
     <div class="setting-group">
       <div class="setting-group-title">画面</div>
       <label class="setting">
-        <span class="setting-label">棋盘尺寸<small>换尺寸会重开本关</small></span>
+        <span class="setting-label">画面模式<small>原版还原是 680×580 的固定画面，横屏才放得下</small></span>
+        <select id="setView" class="select">
+          <option value="auto">自动（横屏用原版还原）</option>
+          <option value="stage">始终用原版还原</option>
+          <option value="mobile">始终用手机版式</option>
+        </select>
+      </label>
+      <label class="setting">
+        <span class="setting-label">棋盘尺寸<small>非 10×10 时只能用手机版式</small></span>
         <select id="setBoard" class="select"></select>
       </label>
       <label class="setting">

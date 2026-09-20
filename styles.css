@@ -763,3 +763,166 @@ b { color: #fff; font-weight: 700; }
     transition-duration: .01ms !important;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   原版还原舞台
+   底板 assets/stage/stage-bg.png 是从录屏里抠出的整块界面，
+   所有会变的数字都已擦掉。下面这些坐标全部按原版量出，
+   单位就是底板的像素，整体由 JS 等比缩放。
+   ══════════════════════════════════════════════════════════════ */
+.stage-wrap {
+  position: fixed; inset: 0;
+  display: none;
+  align-items: center; justify-content: center;
+  gap: 10px;
+  padding: var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l);
+  background: #05070d;
+  z-index: 1;
+}
+body.mode-stage .stage-wrap { display: flex; }
+body.mode-stage .app { display: none; }
+
+.stage {
+  position: relative;
+  width: 680px; height: 580px;
+  flex: none;
+  transform-origin: center center;
+  box-shadow: 0 10px 50px rgba(0, 0, 0, .75);
+  font-family: var(--font);
+}
+.stage-bg {
+  position: absolute; inset: 0;
+  width: 680px; height: 580px;
+  image-rendering: auto;
+  user-select: none; -webkit-user-drag: none;
+}
+
+/* 棋盘：原版坐标 */
+.stage-board {
+  position: absolute; left: 7px; top: 130px;
+  width: 400px; height: 400px;
+  touch-action: none;
+}
+.stage-banner {
+  position: absolute; left: 207px; top: 330px;
+  transform: translate(-50%, -50%);
+  padding: 10px 22px;
+  font-size: 26px; font-weight: 900; letter-spacing: .08em; color: #fff6d8;
+  background: rgba(8, 6, 20, .86);
+  border: 2px solid var(--gold-2); border-radius: 14px;
+  white-space: nowrap; pointer-events: none;
+  animation: bannerIn .45s cubic-bezier(.2, 1.4, .4, 1);
+}
+
+/* 计数条：位置与间距都按原版量出（第一格 x=36，之后每格 +49.5） */
+.st-counter {
+  position: absolute; left: 34px; top: 86px;
+  width: 300px; height: 30px;
+  display: flex; align-items: center; gap: 0;
+}
+.st-counter .cc-item {
+  flex: none; width: 49.5px;
+  display: flex; align-items: center; gap: 3px; justify-content: flex-start;
+}
+.st-counter .cc-chip { width: 19px; height: 19px; border-radius: 5px; }
+.st-counter .cc-num {
+  font-size: 16px; font-weight: 900; font-variant-numeric: tabular-nums;
+  color: #fff6b0; min-width: 24px; text-align: left;
+  text-shadow: 0 0 5px rgba(255, 200, 60, .8), 1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
+}
+.st-counter .cc-item.gone { opacity: .35; }
+
+/* 等级数字 */
+.st-level {
+  position: absolute; left: 544px; top: 22px;
+  width: 110px; height: 76px;
+  display: grid; place-items: center;
+  font-size: 58px; font-weight: 900; line-height: 1;
+  font-variant-numeric: tabular-nums; letter-spacing: .02em;
+  color: #ffe14a;
+  text-shadow:
+    0 0 10px rgba(255, 160, 40, .9),
+    2px 2px 0 #7a1f00, -2px 2px 0 #7a1f00, 2px -2px 0 #7a1f00, -2px -2px 0 #7a1f00,
+    0 4px 6px rgba(0, 0, 0, .7);
+}
+
+/* 分数：LED 风格，右对齐贴着「分」字 */
+.st-num {
+  position: absolute;
+  display: flex; align-items: center; justify-content: flex-end;
+  font-family: "DS-Digital", "Courier New", ui-monospace, monospace;
+  font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: .04em;
+  white-space: nowrap;
+}
+.st-score {
+  left: 458px; top: 130px; width: 182px; height: 50px;
+  font-size: 40px; color: #6cff5e;
+  text-shadow: 0 0 10px rgba(108, 255, 94, .85), 2px 2px 0 #0a3d16, -1px -1px 0 #0a3d16;
+}
+.st-target {
+  left: 458px; top: 210px; width: 182px; height: 50px;
+  font-size: 40px; color: #ffd83c;
+  text-shadow: 0 0 10px rgba(255, 216, 60, .8), 2px 2px 0 #6b4a05, -1px -1px 0 #6b4a05;
+}
+.st-reward {
+  left: 452px; top: 462px; width: 180px; height: 48px;
+  font-size: 34px; color: #ffd83c;
+  text-shadow: 0 0 9px rgba(255, 216, 60, .8), 2px 2px 0 #6b4a05;
+}
+.st-num.bump { animation: bump .28s ease; }
+
+/* 道具 */
+.st-tool {
+  position: absolute;
+  width: 76px; height: 92px;
+  padding: 0; background: none; border: 2px solid transparent; border-radius: 8px;
+  transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.st-tool-del { left: 473px; top: 274px; }
+.st-tool-tr  { left: 558px; top: 274px; }
+.st-tool:active { transform: scale(.94); }
+.st-tool.armed {
+  border-color: #fff0a8;
+  box-shadow: 0 0 0 2px rgba(255, 216, 60, .45), 0 0 22px rgba(255, 216, 60, .65);
+  animation: armedPulse 1s ease-in-out infinite;
+}
+.st-tool.empty { opacity: .4; filter: grayscale(.7); }
+.st-tool-count {
+  position: absolute; left: 3px; bottom: 2px;
+  width: 22px; height: 24px;
+  display: grid; place-items: center;
+  font-size: 17px; font-weight: 900; font-variant-numeric: tabular-nums;
+  color: #8dff7a;
+  text-shadow: 0 0 5px rgba(120, 255, 100, .9), 1px 1px 0 #000, -1px 1px 0 #000;
+}
+
+/* 游戏任务 */
+.st-missions {
+  position: absolute; left: 420px; top: 424px;
+  width: 190px; height: 34px;
+  display: flex; align-items: center; gap: 6px;
+}
+.st-mission { display: flex; align-items: center; gap: 4px; }
+.st-mission .cc-chip { width: 22px; height: 22px; border-radius: 5px; }
+.st-mission-num {
+  font-size: 17px; font-weight: 900; color: #fff6b0;
+  text-shadow: 0 0 5px rgba(255, 200, 60, .8), 1px 1px 0 #000, -1px 1px 0 #000;
+}
+.st-mission.done { filter: saturate(.4) brightness(1.3); }
+.st-mission.done .st-mission-num { color: #8dff7a; }
+.st-mission-text {
+  font-size: 12px; color: #d6ffe0;
+  text-shadow: 1px 1px 0 #000;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* 舞台外的控制条 */
+.stage-side { display: flex; flex-direction: column; gap: 6px; flex: none; }
+.stage-side .foot-btn { min-width: 76px; padding: 10px 8px; }
+.stage-side .foot-btn i { font-style: normal; color: #ffd83c; }
+
+/* 舞台放不下时（竖屏窄屏），控制条改到下面横排 */
+@media (max-aspect-ratio: 1/1) {
+  .stage-wrap { flex-direction: column; }
+  .stage-side { flex-direction: row; }
+}
