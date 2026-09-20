@@ -6,6 +6,7 @@
  */
 
 import { GEM_COLORS, BLOCK_KIND } from '../core/config.js';
+import { getImage } from './assets.js';
 
 /** 缓存：key = `${kind}:${type}:${size}` */
 const cache = new Map();
@@ -115,64 +116,183 @@ function drawCandy(ctx, size, color) {
 }
 
 /**
- * 色盲友好标记：每种颜色在中心叠一个不同的形状，
- * 这样不靠颜色也能分辨方块种类。
+ * 方块中央的动物脸。
+ * 原版每种颜色画的是一只不同的小动物（猫、虎、蛙、熊、兔、狗、猪），
+ * 靠脸型而不是只靠颜色区分，色弱玩家也能玩。
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} s 方块边长
+ * @param {number} index 颜色索引，决定画哪只动物
+ * @param {object} color 该颜色的配色表
  */
-function drawColorMark(ctx, size, index) {
-  const cx = size / 2, cy = size * 0.54;
-  const r = size * 0.15;
+function drawAnimalFace(ctx, s, index, color) {
+  const cx = s / 2;
+  const cy = s * 0.54;
+  const R = s * 0.27;              // 脸的半径
+  const dark = color.dark;
+  const face = color.light;
+
   ctx.save();
-  ctx.globalAlpha = 0.34;
-  ctx.fillStyle = '#ffffff';
-  ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-  ctx.lineWidth = Math.max(1, size * 0.02);
-  ctx.beginPath();
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+
+  const ear = (x, y, w, h, rot = 0, fill = dark) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, w, h, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  };
+  const triEar = (x, y, w, h, flip = 1) => {
+    ctx.fillStyle = dark;
+    ctx.beginPath();
+    ctx.moveTo(x, y - h);
+    ctx.lineTo(x + w * flip, y + h * 0.5);
+    ctx.lineTo(x - w * flip * 0.6, y + h * 0.5);
+    ctx.closePath();
+    ctx.fill();
+  };
+
+  // ── 耳朵（画在脸之前，让脸压住根部）
   switch (index % 7) {
-    case 0:  // 圆
-      ctx.arc(cx, cy, r * 0.82, 0, Math.PI * 2);
+    case 0:   // 猫：尖耳
+      triEar(cx - R * 0.72, cy - R * 0.72, R * 0.42, R * 0.52, 1);
+      triEar(cx + R * 0.72, cy - R * 0.72, R * 0.42, R * 0.52, -1);
       break;
-    case 1:  // 方
-      ctx.rect(cx - r * 0.7, cy - r * 0.7, r * 1.4, r * 1.4);
+    case 1:   // 虎：圆耳 + 额头条纹
+      ear(cx - R * 0.82, cy - R * 0.7, R * 0.34, R * 0.34);
+      ear(cx + R * 0.82, cy - R * 0.7, R * 0.34, R * 0.34);
       break;
-    case 2:  // 三角
-      ctx.moveTo(cx, cy - r);
-      ctx.lineTo(cx + r * 0.9, cy + r * 0.7);
-      ctx.lineTo(cx - r * 0.9, cy + r * 0.7);
-      ctx.closePath();
+    case 2:   // 蛙：眼睛顶在头上
+      ear(cx - R * 0.6, cy - R * 0.82, R * 0.36, R * 0.34, 0, face);
+      ear(cx + R * 0.6, cy - R * 0.82, R * 0.36, R * 0.34, 0, face);
       break;
-    case 3:  // 菱形
-      ctx.moveTo(cx, cy - r);
-      ctx.lineTo(cx + r, cy);
-      ctx.lineTo(cx, cy + r);
-      ctx.lineTo(cx - r, cy);
-      ctx.closePath();
+    case 3:   // 熊：大圆耳
+      ear(cx - R * 0.86, cy - R * 0.62, R * 0.4, R * 0.4);
+      ear(cx + R * 0.86, cy - R * 0.62, R * 0.4, R * 0.4);
       break;
-    case 4: {  // 五角星
-      for (let i = 0; i < 5; i++) {
-        const a = -Math.PI / 2 + (i * Math.PI * 2) / 5;
-        const a2 = a + Math.PI / 5;
-        ctx[i ? 'lineTo' : 'moveTo'](cx + Math.cos(a) * r, cy + Math.sin(a) * r);
-        ctx.lineTo(cx + Math.cos(a2) * r * 0.45, cy + Math.sin(a2) * r * 0.45);
-      }
-      ctx.closePath();
+    case 4:   // 兔：长耳
+      ear(cx - R * 0.42, cy - R * 1.15, R * 0.2, R * 0.6, -0.2);
+      ear(cx + R * 0.42, cy - R * 1.15, R * 0.2, R * 0.6, 0.2);
       break;
-    }
-    case 5: {  // 六边形
-      for (let i = 0; i < 6; i++) {
-        const a = (i * Math.PI) / 3;
-        ctx[i ? 'lineTo' : 'moveTo'](cx + Math.cos(a) * r * 0.9, cy + Math.sin(a) * r * 0.9);
-      }
-      ctx.closePath();
+    case 5:   // 狗：耷拉到脸颊两侧的垂耳
+      ear(cx - R * 0.96, cy + R * 0.02, R * 0.25, R * 0.55, -0.22);
+      ear(cx + R * 0.96, cy + R * 0.02, R * 0.25, R * 0.55, 0.22);
       break;
-    }
-    default:   // 水滴
-      ctx.moveTo(cx, cy - r);
-      ctx.quadraticCurveTo(cx + r, cy, cx, cy + r);
-      ctx.quadraticCurveTo(cx - r, cy, cx, cy - r);
-      ctx.closePath();
+    default:  // 猪：外撇的三角耳
+      triEar(cx - R * 0.78, cy - R * 0.74, R * 0.36, R * 0.44, 1);
+      triEar(cx + R * 0.78, cy - R * 0.74, R * 0.36, R * 0.44, -1);
+  }
+
+  // ── 脸
+  ctx.fillStyle = dark;
+  ctx.globalAlpha = 0.9;
+  ctx.beginPath();
+  if (index % 7 === 2) {
+    ctx.ellipse(cx, cy + R * 0.06, R * 1.05, R * 0.9, 0, 0, Math.PI * 2);   // 蛙脸偏扁
+  } else {
+    ctx.ellipse(cx, cy, R, R * 0.94, 0, 0, Math.PI * 2);
   }
   ctx.fill();
-  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // 虎额头的三道条纹
+  if (index % 7 === 1) {
+    ctx.strokeStyle = color.light;
+    ctx.lineWidth = Math.max(1, s * 0.026);
+    ctx.globalAlpha = 0.75;
+    ctx.beginPath();
+    ctx.moveTo(cx - R * 0.3, cy - R * 0.74); ctx.lineTo(cx - R * 0.34, cy - R * 0.46);
+    ctx.moveTo(cx, cy - R * 0.8);            ctx.lineTo(cx, cy - R * 0.5);
+    ctx.moveTo(cx + R * 0.3, cy - R * 0.74); ctx.lineTo(cx + R * 0.34, cy - R * 0.46);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // ── 眼睛
+  const eyeY = cy - R * 0.14;
+  const eyeDX = R * 0.42;
+  const eyeR = R * 0.27;
+  const eye = (ex) => {
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.ellipse(ex, eyeY, eyeR, eyeR * 1.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#231a12';
+    ctx.beginPath();
+    ctx.ellipse(ex + eyeR * 0.1, eyeY + eyeR * 0.1, eyeR * 0.5, eyeR * 0.62, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(ex + eyeR * 0.3, eyeY - eyeR * 0.3, eyeR * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+  };
+  if (index % 7 === 2) {
+    // 蛙的眼睛在头顶那两个鼓包里
+    const by = cy - R * 0.82;
+    [cx - R * 0.6, cx + R * 0.6].forEach((ex) => {
+      ctx.fillStyle = '#231a12';
+      ctx.beginPath();
+      ctx.arc(ex, by, R * 0.17, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(ex + R * 0.06, by - R * 0.06, R * 0.07, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  } else {
+    eye(cx - eyeDX);
+    eye(cx + eyeDX);
+  }
+
+  // ── 鼻子与嘴
+  ctx.strokeStyle = face;
+  ctx.fillStyle = face;
+  ctx.lineWidth = Math.max(1, s * 0.022);
+  const my = cy + R * 0.42;
+  switch (index % 7) {
+    case 0:   // 猫：小三角鼻 + 胡须
+      ctx.beginPath();
+      ctx.moveTo(cx - R * 0.13, my - R * 0.16);
+      ctx.lineTo(cx + R * 0.13, my - R * 0.16);
+      ctx.lineTo(cx, my + R * 0.02);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx - R * 0.85, my - R * 0.1); ctx.lineTo(cx - R * 0.3, my);
+      ctx.moveTo(cx + R * 0.85, my - R * 0.1); ctx.lineTo(cx + R * 0.3, my);
+      ctx.stroke();
+      break;
+    case 2:   // 蛙：大咧嘴
+      ctx.beginPath();
+      ctx.arc(cx, my - R * 0.42, R * 0.62, 0.18 * Math.PI, 0.82 * Math.PI);
+      ctx.stroke();
+      break;
+    case 6:   // 猪：圆鼻拱
+      ctx.beginPath();
+      ctx.ellipse(cx, my, R * 0.34, R * 0.25, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = dark;
+      ctx.beginPath();
+      ctx.ellipse(cx - R * 0.13, my, R * 0.07, R * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx + R * 0.13, my, R * 0.07, R * 0.1, 0, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    default:  // 其余：小鼻子 + 微笑
+      ctx.beginPath();
+      ctx.ellipse(cx, my - R * 0.1, R * 0.15, R * 0.11, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx, my + R * 0.02);
+      ctx.quadraticCurveTo(cx - R * 0.26, my + R * 0.3, cx - R * 0.4, my + R * 0.1);
+      ctx.moveTo(cx, my + R * 0.02);
+      ctx.quadraticCurveTo(cx + R * 0.26, my + R * 0.3, cx + R * 0.4, my + R * 0.1);
+      ctx.stroke();
+  }
+
   ctx.restore();
 }
 
@@ -292,6 +412,17 @@ function drawStone(ctx, size) {
  * @param {boolean} colorMark 是否叠加色盲友好形状标记
  */
 export function getSprite(type, kind, size, colorMark = true) {
+  // 优先用从原版录屏里抠出来的贴图；它本身就是位图，直接交给 drawImage 缩放即可
+  if (colorMark) {
+    if (kind === BLOCK_KIND.MAGIC) {
+      const img = getImage('magic');
+      if (img) return img;
+    } else if (kind !== BLOCK_KIND.STONE) {
+      const img = getImage(`block:${type}`);
+      if (img) return img;
+    }
+  }
+
   const px = Math.max(8, Math.round(size));
   const key = `${kind}:${type}:${px}:${colorMark ? 1 : 0}`;
   const hit = cache.get(key);
@@ -307,7 +438,7 @@ export function getSprite(type, kind, size, colorMark = true) {
     drawMagic(ctx, px, color);
   } else {
     drawCandy(ctx, px, color);
-    if (colorMark) drawColorMark(ctx, px, type);
+    if (colorMark) drawAnimalFace(ctx, px, type, color);
   }
 
   // 缓存满了就整体清空，避免无限增长（换分辨率时会重建）

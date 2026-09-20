@@ -16,6 +16,7 @@ import { Screens } from './ui/screens.js';
 import { $, vibrate } from './ui/dom.js';
 import { ITEM_META } from './core/config.js';
 import { clearSpriteCache } from './render/sprites.js';
+import { loadAssets } from './render/assets.js';
 
 class App {
   constructor() {
@@ -54,8 +55,15 @@ class App {
     this.bindInput();
     this.applySettings();
 
+    // 先把原版方块贴图load进来，避免开局第一帧还在用程序化方块
+    await Promise.race([
+      loadAssets(7),
+      new Promise((r) => setTimeout(r, 2500))   // 网络太慢就先进游戏，贴图到了自然会用上
+    ]);
+    clearSpriteCache();
+
     // 让载入页至少露个脸，避免闪一下就没了
-    await new Promise((r) => setTimeout(r, 260));
+    await new Promise((r) => setTimeout(r, 160));
     $('boot').classList.add('hide');
     setTimeout(() => { $('boot').hidden = true; }, 420);
     $('app').hidden = false;
@@ -199,26 +207,31 @@ class App {
     // 这样手指按下后滑开可以取消，避免误触
     let downIdx = -1;
     let downPos = null;
+    // 这一次按下之前，该格是否已经处于选中状态。
+    // 按下时就把整组高亮出来手感才跟手，但那次高亮不能算作「第一次点击」，
+    // 否则抬手时就会被当成确认，二次确认等于没开。
+    let wasSelected = false;
 
     canvas.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       const idx = this.pickCell(e);
       downIdx = idx;
       downPos = { x: e.clientX, y: e.clientY };
-      // 按下即预览高亮，手感更跟手
-      if (idx >= 0 && this.settings.confirmTap) this.previewCell(idx);
+      wasSelected = idx >= 0 && this.game.board ? this.game.board.selectionHas(idx) : false;
+      if (idx >= 0 && this.settings.confirmTap && !wasSelected) this.previewCell(idx);
     });
 
     canvas.addEventListener('pointerup', (e) => {
       e.preventDefault();
       const idx = this.pickCell(e);
       const moved = downPos && Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) > 24;
-      if (idx >= 0 && idx === downIdx && !moved) this.tapCell(idx);
+      if (idx >= 0 && idx === downIdx && !moved) this.tapCell(idx, wasSelected);
       downIdx = -1;
       downPos = null;
+      wasSelected = false;
     });
 
-    canvas.addEventListener('pointercancel', () => { downIdx = -1; downPos = null; });
+    canvas.addEventListener('pointercancel', () => { downIdx = -1; downPos = null; wasSelected = false; });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
     // 道具按钮
@@ -240,6 +253,8 @@ class App {
     };
 
     click('btnPause', () => this.pause());
+    click('btnOptions', () => { this.pause(); this.screens.close('pause'); this.screens.showSettings(); });
+    click('btnExit', () => this.pause());
     click('btnHelp', () => this.screens.showHelp());
     click('btnHelpClose', () => this.screens.close('help'));
 
@@ -399,10 +414,19 @@ class App {
     if (!g.board.selectionHas(idx)) g.board.select(idx);
   }
 
-  /** 真正的一次点击 */
-  tapCell(idx) {
+  /**
+   * 真正的一次点击。
+   * @param {number} idx 格子索引
+   * @param {boolean} wasSelected 按下之前该格是否已选中（决定这次算选中还是确认）
+   */
+  tapCell(idx, wasSelected = false) {
     const g = this.game;
     if (g.phase !== PHASE.PLAYING) return;
+    // 二次确认模式下，如果这一组是刚刚按下时才亮起来的，本次抬手只当作「选中」
+    if (this.settings.confirmTap && !wasSelected && !g.armedItem) {
+      const b = g.board.grid[idx];
+      if (b && b.isNormal && g.board.selectionHas(idx)) return;
+    }
     const result = g.tapCell(idx);
     if (result === 'item') this.hud.updateItems();
   }
@@ -492,11 +516,15 @@ class App {
     if (!('serviceWorker' in navigator)) return;
     // file:// 打开时没有 SW，直接跳过
     if (location.protocol === 'file:') return;
-    window.addEventListener('load', () => {
+
+    const register = () => {
       navigator.serviceWorker.register('sw.js').catch((err) => {
         console.info('离线缓存未启用：', err.message);
       });
-    });
+    };
+    // boot() 跑完时 load 事件多半已经过去了，这时挂监听永远等不到
+    if (document.readyState === 'complete') register();
+    else window.addEventListener('load', register, { once: true });
   }
 }
 

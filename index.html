@@ -27,120 +27,119 @@
 <!-- ══════════════ 主界面 ══════════════ -->
 <div id="app" class="app" hidden>
 
-  <!-- 夜景背景：天空 / 星星 / 远山剪影 -->
+  <!-- 夕照背景：暖色天空 / 远树剪影 / 水面 -->
   <div class="scene" aria-hidden="true">
     <div class="scene-sky"></div>
-    <div class="scene-stars"></div>
-    <div class="scene-moon"></div>
-    <div class="scene-hills"></div>
+    <div class="scene-sun"></div>
+    <div class="scene-trees"></div>
+    <div class="scene-water"></div>
     <div class="scene-vignette"></div>
   </div>
 
-  <!-- ─────── 顶栏：STAGE 徽章 + 任务条 ─────── -->
-  <header class="topbar">
-    <div class="stage-badge">
-      <span class="stage-badge-label">STAGE</span>
-      <span class="stage-badge-num" id="stageNum">01</span>
-    </div>
-
-    <div class="missions" id="missions"><!-- 任务条由 JS 注入 --></div>
-
-    <button class="icon-btn" id="btnPause" type="button" aria-label="暂停">❚❚</button>
-  </header>
-
-  <!-- ─────── 左栏 ─────── -->
-  <aside class="side side-left">
-    <div class="plaque plaque-target">
-      <span class="plaque-label">通过分数</span>
-      <span class="plaque-value" id="targetScore">2,500</span>
-    </div>
-    <div class="plaque plaque-mine">
-      <span class="plaque-label">我的分数</span>
-      <span class="plaque-value plaque-value-mine" id="myScore">0</span>
-    </div>
-
-    <div class="panel panel-stats">
-      <div class="stat"><span class="stat-k">剩余方块</span><span class="stat-v" id="statRemain">99</span></div>
-      <div class="stat"><span class="stat-k">已消除</span><span class="stat-v" id="statCleared">0</span></div>
-      <div class="stat"><span class="stat-k">最大一组</span><span class="stat-v" id="statMaxGroup">0</span></div>
-    </div>
-
-    <div class="mascots">
-      <img class="mascot-art mascot-monkey" src="assets/art/monkey.svg" alt="" aria-hidden="true">
-      <img class="mascot-art mascot-piggy" src="assets/art/piggy.svg" alt="" aria-hidden="true">
-    </div>
-  </aside>
-
-  <!-- ─────── 棋盘 ─────── -->
+  <!-- ─────── 棋盘区（原版在左侧） ─────── -->
   <main class="board-area">
-    <canvas id="board" aria-label="对对碰棋盘"></canvas>
-    <div class="board-banner" id="boardBanner" hidden></div>
+    <!-- 棋盘顶上的铭牌：标题 + 各色剩余数量 -->
+    <div class="board-head">
+      <div class="board-logo">对对碰</div>
+      <div class="color-counter" id="colorCounter"><!-- 由 JS 注入 --></div>
+    </div>
+    <div class="board-wrap">
+      <canvas id="board" aria-label="对对碰棋盘"></canvas>
+      <div class="board-banner" id="boardBanner" hidden></div>
+    </div>
   </main>
 
-  <!-- ─────── 右栏：立绘 + 聊天框 ─────── -->
-  <aside class="side side-right">
-    <div class="portrait">
-      <img class="portrait-art" id="portraitArt" src="assets/art/hood.svg" alt="小红帽">
-      <div class="portrait-name" id="mascotName">小红帽</div>
-      <div class="portrait-title" id="mascotTitle">森林向导</div>
+  <!-- ─────── 右侧信息栏 ─────── -->
+  <aside class="panel-col">
+    <!-- 等级 -->
+    <div class="level-row p-level">
+      <span class="level-label">等级</span>
+      <span class="level-num" id="stageNum">01</span>
+      <button class="icon-btn" id="btnPause" type="button" aria-label="暂停">❚❚</button>
     </div>
-    <div class="panel panel-chat">
-      <div class="chat-log" id="chatLog"></div>
+
+    <!-- 目前得分 -->
+    <div class="board-plate p-score">
+      <div class="plate-cap">目前得分</div>
+      <div class="plate-body">
+        <span class="led led-green" id="myScore">0</span><span class="led-unit">分</span>
+      </div>
     </div>
-    <div class="puppy" id="puppy" title="旺财（只负责卖萌）">
-      <img class="puppy-art" src="assets/art/puppy.svg" alt="旺财">
-      <div class="puppy-bubble" id="puppyBubble" hidden></div>
+
+    <!-- 过关目标分数 -->
+    <div class="board-plate p-target">
+      <div class="plate-cap">过关目标分数</div>
+      <div class="plate-body">
+        <span class="led led-gold" id="targetScore">1000</span><span class="led-unit">分</span>
+      </div>
     </div>
+
+    <!-- 进度条 -->
+    <div class="progress p-prog" aria-label="过关进度">
+      <div class="progress-fill" id="progressFill"></div>
+      <div class="progress-mark" id="progressStar2" title="二星"></div>
+      <div class="progress-mark" id="progressStar3" title="三星"></div>
+      <div class="progress-text" id="progressText">还差 1,000 分</div>
+    </div>
+
+    <!-- 道具：先点图标激活，再点棋盘 -->
+    <div class="tools p-tools">
+      <button class="tool" id="itemHammer" type="button" data-item="hammer">
+        <img class="tool-art" src="assets/art/monkey.svg" alt="">
+        <span class="tool-tag"><i class="tool-count" id="countHammer">3</i>删除</span>
+      </button>
+      <button class="tool" id="itemTransform" type="button" data-item="transform">
+        <img class="tool-art" src="assets/art/piggy.svg" alt="">
+        <span class="tool-tag"><i class="tool-count" id="countTransform">2</i>变换</span>
+      </button>
+      <button class="tool" id="itemHint" type="button" data-item="hint">
+        <img class="tool-art" src="assets/art/puppy.svg" alt="">
+        <span class="tool-tag"><i class="tool-count" id="countHint">5</i>提示</span>
+      </button>
+    </div>
+
+    <!-- 游戏任务 -->
+    <div class="board-plate mission-plate p-mission">
+      <div class="plate-cap">游戏任务</div>
+      <div class="missions" id="missions"><!-- 由 JS 注入 --></div>
+      <div class="mission-reward">
+        <span class="led led-gold led-sm" id="missionReward">0</span><span class="led-unit">分</span>
+      </div>
+    </div>
+
+    <!-- 统计 + 对话（横屏才显示） -->
+    <div class="side-extra p-extra">
+      <div class="panel panel-stats">
+        <div class="stat"><span class="stat-k">剩余方块</span><span class="stat-v" id="statRemain">100</span></div>
+        <div class="stat"><span class="stat-k">已消除</span><span class="stat-v" id="statCleared">0</span></div>
+        <div class="stat"><span class="stat-k">最大一组</span><span class="stat-v" id="statMaxGroup">0</span></div>
+      </div>
+      <div class="panel panel-chat">
+        <div class="chat-log" id="chatLog"></div>
+      </div>
+    </div>
+
   </aside>
 
-  <!-- ─────── 底栏：提示 + 道具 + 进度条 + 选项/退出 ─────── -->
-  <footer class="bottombar">
-    <div class="bottom-items">
-      <button class="item-btn" id="itemHint" type="button" data-item="hint">
-        <span class="item-icon">👁</span>
-        <span class="item-name">提示</span>
-        <span class="item-count" id="countHint">5</span>
-      </button>
-      <button class="item-btn" id="itemHammer" type="button" data-item="hammer">
-        <span class="item-icon">🔨</span>
-        <span class="item-name">榔头</span>
-        <span class="item-count" id="countHammer">3</span>
-      </button>
-      <button class="item-btn" id="itemTransform" type="button" data-item="transform">
-        <span class="item-icon">🎨</span>
-        <span class="item-name">变换</span>
-        <span class="item-count" id="countTransform">2</span>
-      </button>
-      <div class="bottom-spacer"></div>
-      <button class="item-btn item-btn-ghost" id="btnHelp" type="button">
-        <span class="item-icon">❓</span><span class="item-name">玩法</span>
-      </button>
-      <button class="item-btn item-btn-ghost" id="btnOptions" type="button">
-        <span class="item-icon">⚙</span><span class="item-name">选项</span>
-      </button>
-      <button class="item-btn item-btn-ghost" id="btnExit" type="button">
-        <span class="item-icon">⏏</span><span class="item-name">退出</span>
-      </button>
-    </div>
+  <!-- 玩法 / 选项 / 退出（竖屏在棋盘下方，横屏在信息栏下方） -->
+  <div class="panel-foot">
+    <button class="foot-btn" id="btnHelp" type="button">玩法</button>
+    <button class="foot-btn" id="btnOptions" type="button">选项</button>
+    <button class="foot-btn" id="btnExit" type="button">退出</button>
+  </div>
 
-    <!-- 原版底部那条长进度条 -->
-    <div class="progress-rail">
-      <span class="rail-cap rail-cap-l"></span>
-      <div class="progress" aria-label="过关进度">
-        <div class="progress-fill" id="progressFill"></div>
-        <div class="progress-mark" id="progressStar2" title="二星"></div>
-        <div class="progress-mark" id="progressStar3" title="三星"></div>
-        <div class="progress-text" id="progressText">还差 2,500 分</div>
-      </div>
-      <span class="rail-cap rail-cap-r"></span>
-    </div>
-  </footer>
-
-  <!-- 竖屏时贴在底部的对话条 -->
+  <!-- 竖屏时贴底的对话条 -->
   <div class="chat-strip" id="chatStrip">
-    <span class="chat-strip-face" id="chatStripFace">🧚</span>
+    <img class="chat-strip-art" id="chatStripFace" src="assets/art/hood.svg" alt="">
     <span class="chat-strip-text" id="chatStripText">一次点掉的方块越多，分数越高哦！</span>
     <img class="chat-strip-puppy" src="assets/art/puppy.svg" alt="" aria-hidden="true">
+  </div>
+
+  <!-- 隐藏的旧节点，保持脚本引用不报错 -->
+  <div hidden>
+    <span id="mascotName"></span><span id="mascotTitle"></span>
+    <div id="puppyBubble" hidden></div>
+    <img id="portraitArt" alt="">
   </div>
 </div>
 
@@ -234,7 +233,7 @@
 
     <div class="help-section">
       <h3>怎么消除</h3>
-      <p>棋盘铺满彩色方块。点击<b>上下左右相连、两个以上</b>的同色方块，整组一起消失。</p>
+      <p>棋盘铺满带小动物的彩色方块。点击<b>上下左右相连、两个以上</b>的同色方块，整组一起消失。</p>
       <p class="dim">斜着挨在一起<b>不算</b>相连；孤零零的单个方块点不掉。</p>
       <div class="help-figure">
         <div class="help-grid help-grid-ok">
@@ -242,22 +241,27 @@
           <i class="c0"></i><i class="c2"></i><i class="c3"></i>
           <i class="c1"></i><i class="c2"></i><i class="c1"></i>
         </div>
-        <span class="help-figure-cap">左上三个红块相连 → 可以消</span>
+        <span class="help-figure-cap">左上三个红块相连 → 可以消（两个就够）</span>
       </div>
     </div>
 
     <div class="help-section">
       <h3>空位怎么填</h3>
-      <p>方块<b>不会从上往下掉</b>。消除之后，<b>同一行里空位两侧的方块会向中间靠拢</b>，把空位挤掉。</p>
+      <p>消除之后，空出来的位置由<b>上方的方块掉下来</b>填补；如果<b>整列都被清空</b>，右边的列会<b>整体向左合拢</b>。</p>
+      <p class="dim">所以棋盘会越打越矮、越打越窄，空白永远堆在右上角。</p>
       <div class="help-figure">
-        <div class="help-row">
-          <i class="c0"></i><i class="c1"></i><i class="gap"></i><i class="gap"></i><i class="c2"></i><i class="c3"></i>
+        <div class="help-grid">
+          <i class="c1"></i><i class="c2"></i><i class="c3"></i>
+          <i class="c1"></i><i class="c3"></i><i class="c2"></i>
+          <i class="c0"></i><i class="c0"></i><i class="c3"></i>
         </div>
-        <span class="help-arrow">↓</span>
-        <div class="help-row">
-          <i class="gap"></i><i class="gap"></i><i class="c0"></i><i class="c1"></i><i class="c2"></i><i class="c3"></i>
+        <span class="help-arrow">↓ 点掉最下排那对红块</span>
+        <div class="help-grid">
+          <i class="gap"></i><i class="gap"></i><i class="c3"></i>
+          <i class="c1"></i><i class="c2"></i><i class="c2"></i>
+          <i class="c1"></i><i class="c3"></i><i class="c3"></i>
         </div>
-        <span class="help-figure-cap">左边两块向右靠，空位被挤到最外侧</span>
+        <span class="help-figure-cap">上面两列整体落下一格，右列不受影响</span>
       </div>
     </div>
 
@@ -272,7 +276,7 @@
     <div class="help-section">
       <h3>过关与结束</h3>
       <p>达到本关的<b>目标分数</b>即可过关。</p>
-      <p>从<b>第 6 关</b>起会出现<b>任务目标</b>，完成能拿到一笔可观的奖励分。</p>
+      <p>从<b>第 6 关</b>起会出现<b>游戏任务</b>，完成能拿到一笔可观的奖励分。</p>
       <p>当棋盘上再也找不到相连的同色组合时，本局结束；此时分数没达标就要重来。</p>
     </div>
 
@@ -290,7 +294,7 @@
         <span class="help-item-icon">🪨</span>
         <div>
           <b>顽石</b>（灰色岩块）<br>
-          不参与任何消除，点了也没反应，<b>只能用榔头敲掉</b>。第 12 关起出现。
+          不参与任何消除，点了也没反应，<b>只能用「删除」道具清掉</b>。第 12 关起出现。
         </div>
       </div>
     </div>
@@ -300,7 +304,7 @@
       <p class="dim">先点底部的道具图标激活，再点棋盘上的位置使用。再点一次图标可以取消。</p>
       <div class="help-item">
         <span class="help-item-icon">🔨</span>
-        <div><b>榔头</b> —— 直接敲掉<b>任意一个</b>方块，不受相连规则限制，顽石也能敲。敲掉的方块不计分。</div>
+        <div><b>删除</b> —— 直接删掉<b>任意一个</b>方块，不受相连规则限制，顽石也能清。被删掉的方块不计分。</div>
       </div>
       <div class="help-item">
         <span class="help-item-icon">🎨</span>
@@ -360,7 +364,7 @@
         <input type="checkbox" id="setParticles" class="switch">
       </label>
       <label class="setting">
-        <span class="setting-label">色盲辅助形状<small>每种颜色叠一个形状</small></span>
+        <span class="setting-label">方块画小动物<small>每种颜色一只，关掉就是纯色块</small></span>
         <input type="checkbox" id="setColorMark" class="switch">
       </label>
     </div>

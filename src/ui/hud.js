@@ -7,7 +7,7 @@
 
 import { $, el, clear, setText } from './dom.js';
 import { formatScore } from '../core/util.js';
-import { ITEM_META } from '../core/config.js';
+import { ITEM_META, GEM_COLORS, SCORE } from '../core/config.js';
 
 export class Hud {
   constructor(game) {
@@ -22,9 +22,11 @@ export class Hud {
       progressText: $('progressText'),
       progressStar2: $('progressStar2'),
       progressStar3: $('progressStar3'),
-      mascotFace: $('mascotFace'),
       mascotName: $('mascotName'),
       mascotTitle: $('mascotTitle'),
+      portraitArt: $('portraitArt'),
+      colorCounter: $('colorCounter'),
+      missionReward: $('missionReward'),
       statRemain: $('statRemain'),
       statCleared: $('statCleared'),
       statMaxGroup: $('statMaxGroup'),
@@ -40,6 +42,8 @@ export class Hud {
       transform: { btn: $('itemTransform'), count: $('countTransform') },
       hint: { btn: $('itemHint'), count: $('countHint') }
     };
+    this._ccNodes = [];
+    this._lastCounts = null;
     this._lastScore = -1;
     this._missionNodes = [];
     this._toastTimer = null;
@@ -54,10 +58,14 @@ export class Hud {
 
     setText(this.node.stageNum, String(s.n).padStart(2, '0'));
     setText(this.node.targetScore, formatScore(s.target));
-    setText(this.node.mascotFace, s.mascot.face);
     setText(this.node.mascotName, s.mascot.name);
     setText(this.node.mascotTitle, s.mascot.title);
-    setText(this.node.chatStripFace, s.mascot.face);
+    if (this.node.portraitArt) this.node.portraitArt.src = s.mascot.art;
+    if (this.node.chatStripFace) this.node.chatStripFace.src = s.mascot.art;
+    const rewardTotal = (this.game.missionState.length || 0) * SCORE.missionBonus;
+    setText(this.node.missionReward, formatScore(rewardTotal));
+    const rewardBox = this.node.missionReward?.parentElement;
+    if (rewardBox) rewardBox.hidden = rewardTotal === 0;
 
     // 主题色
     const root = document.documentElement.style;
@@ -76,6 +84,7 @@ export class Hud {
     if (this.node.progressStar3) this.node.progressStar3.style.left = '99%';
 
     this._buildMissions();
+    this._buildColorCounter();
     clear(this.node.chatLog);
     this._chatCount = 0;
     this._lastScore = -1;
@@ -91,25 +100,64 @@ export class Hud {
     const list = this.game.missionState;
     if (!list.length) {
       const hint = el('div', 'mission');
-      hint.appendChild(el('div', 'mission-head', '本关目标'));
-      hint.appendChild(el('div', 'mission-text', this.game.stage.brief));
+      hint.appendChild(el('div', 'mission-text', '本关没有额外任务，冲目标分即可'));
       box.appendChild(hint);
       return;
     }
 
-    list.forEach((m, i) => {
+    list.forEach((m) => {
       const node = el('div', 'mission');
-      const head = el('div', 'mission-head');
-      head.appendChild(el('span', null, `任务 ${i + 1}`));
-      const prog = el('span', 'mission-prog', '');
-      head.appendChild(prog);
+
+      // 指定颜色的任务直接画出那个方块，一眼看懂要消哪种
+      if (m.type === 'color' && GEM_COLORS[m.color]) {
+        const icons = el('div', 'mission-icons');
+        const chip = el('span', 'cc-chip');
+        chip.style.background = GEM_COLORS[m.color].main;
+        icons.appendChild(chip);
+        node.appendChild(icons);
+      }
+
       const text = el('div', 'mission-text', m.text);
+      const prog = el('span', 'mission-prog', '');
       const bar = el('div', 'mission-bar');
       const fill = el('i');
       bar.appendChild(fill);
-      node.append(head, text, bar);
+      node.append(text, prog, bar);
       box.appendChild(node);
       this._missionNodes.push({ node, prog, fill, mission: m });
+    });
+  }
+
+  /** 建立棋盘顶部的各色剩余数量计数条 */
+  _buildColorCounter() {
+    const box = this.node.colorCounter;
+    if (!box) return;
+    clear(box);
+    this._ccNodes = [];
+    this._lastCounts = null;
+
+    const colors = this.game.board ? this.game.board.colors : 5;
+    for (let t = 0; t < colors; t++) {
+      const item = el('div', 'cc-item');
+      const chip = el('span', 'cc-chip');
+      chip.style.background = `linear-gradient(180deg, ${GEM_COLORS[t].light}, ${GEM_COLORS[t].main} 45%, ${GEM_COLORS[t].dark})`;
+      const num = el('span', 'cc-num', '0');
+      item.append(chip, num);
+      item.title = `${GEM_COLORS[t].name}色方块剩余数量`;
+      box.appendChild(item);
+      this._ccNodes.push({ item, num });
+    }
+  }
+
+  _updateColorCounter() {
+    if (!this._ccNodes.length || !this.game.board) return;
+    const counts = this.game.board.colorCounts();
+    if (this._lastCounts && counts.every((v, i) => v === this._lastCounts[i])) return;
+    this._lastCounts = counts;
+    this._ccNodes.forEach((n, i) => {
+      const v = counts[i] || 0;
+      setText(n.num, v);
+      n.item.classList.toggle('gone', v === 0);
     });
   }
 
@@ -124,8 +172,7 @@ export class Hud {
       this._lastScore = shown;
       if (this.node.myScore) {
         this.node.myScore.classList.remove('bump');
-        // 强制重排以便动画能重放
-        void this.node.myScore.offsetWidth;
+        void this.node.myScore.offsetWidth;   // 强制重排，让动画能重放
         this.node.myScore.classList.add('bump');
       }
     }
@@ -140,6 +187,7 @@ export class Hud {
     setText(this.node.statCleared, g.stats.blocksCleared);
     setText(this.node.statMaxGroup, g.stats.maxGroup);
 
+    this._updateColorCounter();
     this._updateMissions();
   }
 
@@ -170,6 +218,7 @@ export class Hud {
       btn.classList.toggle('empty', n <= 0);
       btn.classList.toggle('armed', g.armedItem === key);
       btn.setAttribute('aria-label', `${ITEM_META[key].name}，剩余 ${n} 个：${ITEM_META[key].desc}`);
+      btn.title = `${ITEM_META[key].name}（剩 ${n}）：${ITEM_META[key].desc}`;
     }
   }
 
@@ -190,7 +239,6 @@ export class Hud {
     if (who === '旺财') {
       this._showPuppyBubble(text);
     } else {
-      setText(this.node.chatStripFace, face || '💬');
       setText(this.node.chatStripText, text);
       if (this.node.chatStripText) {
         this.node.chatStripText.style.animation = 'none';

@@ -59,9 +59,10 @@ let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) { pass++; console.log('  ✓', m); } else { fail++; console.log('  ✗', m); } };
 
 const ctx = await browser.newContext({
-  ...devices['Pixel 7'],
-  locale: 'zh-CN',
-  reducedMotion: 'no-preference'
+  viewport: { width: 412, height: 915 },
+  isMobile: true, hasTouch: true,
+  deviceScaleFactor: 1,     // 截图只为看版式，1 倍足够，3 倍会把整轮测试拖慢好几倍
+  locale: 'zh-CN'
 });
 const page = await ctx.newPage();
 page.on('pageerror', (e) => errors.push(`页面异常：${e.message}`));
@@ -78,22 +79,23 @@ const shot = async (name) => {
 
 console.log(`\n访问 ${BASE}\n`);
 console.log('【1】启动');
-await page.goto(BASE, { waitUntil: 'networkidle' });
+const t0 = Date.now();
+const lap = (name) => console.log(`     ⏱ ${name} ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+await page.goto(BASE, { waitUntil: 'load' });
 await page.waitForSelector('#screenTitle:not([hidden])', { timeout: 8000 });
 ok(true, '标题页出现');
 ok(await page.locator('.game-title').textContent() === '对对碰', '标题文字为「对对碰」');
-await page.waitForTimeout(500);
-await shot('01-标题页');
+await shot('01-标题页'); lap('启动');
 
 console.log('\n【2】玩法说明');
 await page.click('#btnHowTo');
 await page.waitForSelector('#screenHelp:not([hidden])');
 const helpText = await page.locator('#screenHelp').textContent();
 ok(/两个以上/.test(helpText), '说明里写了「两个以上」的消除门槛');
-ok(/向中间靠拢/.test(helpText), '说明里写了「向中间靠拢」的填补规则');
+ok(/上方的方块掉下来/.test(helpText) && /整体向左合拢/.test(helpText), '说明里写了重力填补与空列合拢规则');
 ok(/魔术方块/.test(helpText) && /顽石/.test(helpText), '说明里介绍了特殊方块');
 ok((await page.locator('#helpScoreTable tr').count()) > 5, '分值表已按当前公式生成');
-await shot('02-玩法说明');
+await shot('02-玩法说明'); lap('说明');
 await page.click('#btnHelpClose');
 
 console.log('\n【3】开始游戏');
@@ -101,14 +103,13 @@ await page.click('#btnPlay');
 await page.waitForSelector('#screenIntro:not([hidden])', { timeout: 5000 });
 ok(true, '关卡开场动画出现');
 const introTarget = await page.locator('#introTarget').textContent();
-ok(introTarget === '2,500', `第 1 关目标分为 2,500（实际 ${introTarget}）`);
+ok(introTarget === '1,000', `第 1 关目标分为 1,000（与原版录屏一致，实际 ${introTarget}）`);
 await shot('03-关卡开场');
 
 await page.waitForSelector('#screenIntro', { state: 'hidden', timeout: 6000 });
 await page.waitForFunction(() => window.__duidui?.game?.phase === 'playing', null, { timeout: 8000 });
 ok(true, '开场结束后进入游戏');
-await page.waitForTimeout(600);
-await shot('04-棋盘');
+await shot('04-棋盘'); lap('进入游戏');
 
 const boardInfo = await page.evaluate(() => {
   const b = window.__duidui.game.board;
@@ -128,7 +129,7 @@ const tapIndex = async (idx) => {
     return { x: rect.left + c.x, y: rect.top + c.y };
   }, idx);
   await page.mouse.click(pos.x, pos.y);
-  await page.waitForTimeout(90);
+  await page.waitForTimeout(60);
 };
 
 const firstGroup = await page.evaluate(() => window.__duidui.game.board.allGroups()[0]);
@@ -144,27 +145,28 @@ const after = await page.evaluate(() => window.__duidui.game.board.remaining);
 ok(after === before - selSize, `第二次点击真的消除了（${before} → ${after}）`);
 const score = await page.evaluate(() => window.__duidui.game.score);
 ok(score > 0, `得到了分数：${score}`);
-await shot('06-消除后');
+await shot('06-消除后'); lap('消除');
 
-console.log('\n【5】填补规则：不掉落、向中间靠拢');
+console.log('\n【5】填补规则：上方落下、空列左移');
 const collapseCheck = await page.evaluate(() => {
   const b = window.__duidui.game.board;
-  const mid = Math.floor(b.cols / 2);
-  let holes = 0, rowsChecked = 0;
-  for (let r = 0; r < b.rows; r++) {
-    rowsChecked++;
-    let gap = false;
-    for (let c = mid - 1; c >= 0; c--) {           // 左半区：从中线往外
-      if (!b.get(c, r)) gap = true; else if (gap) holes++;
-    }
-    gap = false;
-    for (let c = mid; c < b.cols; c++) {            // 右半区：从中线往外
-      if (!b.get(c, r)) gap = true; else if (gap) holes++;
+  let holes = 0, strayCol = 0;
+  for (let c = 0; c < b.cols; c++) {
+    let seenEmpty = false;
+    for (let r = b.rows - 1; r >= 0; r--) {
+      if (!b.get(c, r)) seenEmpty = true; else if (seenEmpty) holes++;
     }
   }
-  return { holes, rowsChecked };
+  let sawEmptyCol = false;
+  for (let c = 0; c < b.cols; c++) {
+    let empty = true;
+    for (let r = 0; r < b.rows; r++) if (b.get(c, r)) { empty = false; break; }
+    if (empty) sawEmptyCol = true; else if (sawEmptyCol) strayCol++;
+  }
+  return { holes, strayCol, cols: b.cols };
 });
-ok(collapseCheck.holes === 0, `所有行都紧贴中线、没有空洞（检查了 ${collapseCheck.rowsChecked} 行）`);
+ok(collapseCheck.holes === 0, `每一列都严格底对齐，没有悬空方块（检查了 ${collapseCheck.cols} 列）`);
+ok(collapseCheck.strayCol === 0, '空列全部合拢到了右侧');
 
 console.log('\n【6】孤立方块点不掉');
 const lone = await page.evaluate(() => {
@@ -187,7 +189,7 @@ if (lone >= 0) {
 
 console.log('\n【7】道具');
 await page.click('#itemHammer');
-ok(await page.locator('#itemHammer.armed').count() === 1, '榔头激活后按钮高亮');
+ok(await page.locator('#itemHammer.armed').count() === 1, '删除道具激活后按钮高亮');
 await shot('07-榔头已激活');
 const beforeHammer = await page.evaluate(() => window.__duidui.game.board.remaining);
 const target = await page.evaluate(() => {
@@ -197,14 +199,14 @@ const target = await page.evaluate(() => {
 await tapIndex(target);
 await page.waitForTimeout(700);
 const afterHammer = await page.evaluate(() => window.__duidui.game.board.remaining);
-ok(afterHammer === beforeHammer - 1, `榔头敲掉了一个方块（${beforeHammer} → ${afterHammer}）`);
-ok(await page.locator('#countHammer').textContent() === '2', '榔头数量从 3 减到 2');
+ok(afterHammer === beforeHammer - 1, `删除道具清掉了一个方块（${beforeHammer} → ${afterHammer}）`);
+ok(await page.locator('#countHammer').textContent() === '2', '删除道具数量从 3 减到 2');
 
 await page.click('#itemHint');
 await page.waitForTimeout(200);
 const hinted = await page.evaluate(() => (window.__duidui.game.board.hint || []).length);
 ok(hinted >= 2, `提示指出了一组 ${hinted} 个方块`);
-await shot('08-提示');
+await shot('08-提示'); lap('道具');
 
 console.log('\n【8】暂停与设置');
 await page.click('#btnPause');
@@ -228,7 +230,8 @@ await page.click('#btnStageSelect');
 await page.waitForSelector('#screenStages:not([hidden])');
 ok(await page.locator('.stage-cell').count() > 5, '关卡列表已生成');
 ok(await page.locator('.chapter-tab').count() === 6, '六个章节标签');
-await shot('11-关卡选择');
+ok(await page.locator('#colorCounter .cc-item').count() >= 5, '棋盘顶部有各色剩余数量计数条');
+await shot('11-关卡选择'); lap('关卡选择');
 await page.click('#btnStagesBack');
 
 console.log('\n【10】一路打到本局结束');
@@ -242,12 +245,12 @@ const runResult = await page.evaluate(async () => {
   while (steps < 400) {
     const g = app.game;
     if (g.phase !== 'playing') break;
-    if (g.board.state !== 'idle') { await sleep(20); continue; }
+    if (g.board.state !== 'idle') { await sleep(8); continue; }
     const groups = g.board.allGroups();
     if (!groups.length) break;
     g.tapCell(groups[0][0]);
     steps++;
-    await sleep(30);
+    await sleep(8);
   }
   return { steps, phase: app.game.phase, score: app.game.score, remaining: app.game.board.remaining };
 });
@@ -265,18 +268,20 @@ await page.waitForSelector('#screenResult:not([hidden])', { timeout: 6000 });
 ok(true, '结算界面出现');
 const resultScore = await page.locator('#resultScore').textContent();
 ok(/[\d,]+/.test(resultScore), `结算分数：${resultScore}`);
-await shot('13-结算');
+await shot('13-结算'); lap('整局');
 
 console.log('\n【11】横屏三栏布局');
 await page.setViewportSize({ width: 900, height: 480 });
 await page.waitForTimeout(400);
 const landscape = await page.evaluate(() => {
-  const r = getComputedStyle(document.querySelector('.side-right')).display;
+  const extra = getComputedStyle(document.querySelector('.side-extra')).display;
   const strip = getComputedStyle(document.querySelector('.chat-strip')).display;
-  return { rightPanel: r, chatStrip: strip };
+  const cols = getComputedStyle(document.querySelector('.app')).gridTemplateColumns.split(' ').length;
+  return { extra, strip, cols };
 });
-ok(landscape.rightPanel !== 'none', '横屏下右侧聊天栏显示出来');
-ok(landscape.chatStrip === 'none', '横屏下底部聊天条隐藏');
+ok(landscape.extra !== 'none', '横屏下右栏的统计与聊天显示出来');
+ok(landscape.strip === 'none', '横屏下底部对话条隐藏');
+ok(landscape.cols === 2, `横屏为「棋盘 + 信息栏」两栏（实际 ${landscape.cols} 栏）`);
 await page.locator('#screenResult .btn').first().click();
 await page.waitForTimeout(1600);
 await shot('14-横屏布局');
@@ -290,13 +295,21 @@ const overflow = await page.evaluate(() => ({
 }));
 ok(!overflow.bodyScroll, '320px 宽度下没有横向溢出');
 ok(overflow.canvasW > 200, `棋盘仍有 ${Math.round(overflow.canvasW)}px 可用宽度`);
-await shot('15-超窄屏');
+await shot('15-超窄屏'); lap('自适应');
 
 console.log('\n【13】离线缓存');
 await page.setViewportSize({ width: 412, height: 915 });
-const swReady = await page.evaluate(() => navigator.serviceWorker?.controller != null
-  || navigator.serviceWorker?.ready.then(() => true).catch(() => false));
-ok(swReady !== false, 'Service Worker 已注册');
+// serviceWorker.ready 在没装上时会一直挂着，必须自己加超时
+const swReady = await page.evaluate(() => {
+  if (!('serviceWorker' in navigator)) return 'unsupported';
+  return Promise.race([
+    navigator.serviceWorker.getRegistration().then((r) => (r ? 'registered' : 'none')),
+    new Promise((r) => setTimeout(() => r('timeout'), 3000))
+  ]);
+});
+ok(swReady === 'registered' || swReady === 'unsupported',
+   `Service Worker 状态：${swReady}`);
+lap('离线缓存');
 
 await ctx.close();
 await browser.close();

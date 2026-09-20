@@ -8,15 +8,22 @@
  *   · 达到本关目标分数即通关；无可消组合且未达标则本局结束
  */
 
-/** 方块颜色表（对应原版的糖果配色） */
+/**
+ * 方块配色表。
+ * 数值不是拍脑袋定的 —— 是用 tools/finalize-assets.py 从原版贴图里
+ * 反推出来的主色/高光/暗部，这样 UI 上的色块、粒子、发光效果
+ * 都能和棋盘上的方块严丝合缝地对上。
+ * 前 5 种是原版实际使用的颜色，后 2 种由原版素材旋转色相生成，
+ * 只有在把颜色数调到 6~7 时才会用到。
+ */
 export const GEM_COLORS = [
-  { key: 'red',    name: '红',  main: '#ff4d6a', light: '#ffc2cd', dark: '#9e0f33', glow: '#ff2d55' },
-  { key: 'yellow', name: '黄',  main: '#ffd93d', light: '#fff3b0', dark: '#9c7400', glow: '#ffc400' },
-  { key: 'green',  name: '绿',  main: '#5ce072', light: '#c3f7cc', dark: '#0f7c35', glow: '#2ee05a' },
-  { key: 'blue',   name: '蓝',  main: '#4d8dff', light: '#c0d6ff', dark: '#10399e', glow: '#2d6dff' },
-  { key: 'purple', name: '紫',  main: '#c05cff', light: '#e9caff', dark: '#620f9e', glow: '#a82dff' },
-  { key: 'orange', name: '橙',  main: '#ff9a2e', light: '#ffdcae', dark: '#9e5203', glow: '#ff8a00' },
-  { key: 'cyan',   name: '青',  main: '#3ed6e0', light: '#bdf3f7', dark: '#077784', glow: '#12c2d6' }
+  { key: 'purple',   name: '紫', main: '#a330c8', light: '#ea93f8', dark: '#3a0859', glow: '#c41ffa' },
+  { key: 'blue',     name: '蓝', main: '#2baae8', light: '#8ceffa', dark: '#0e3370', glow: '#10b0ff' },
+  { key: 'orange',   name: '橙', main: '#dea822', light: '#f7e152', dark: '#7e4d11', glow: '#ffb706' },
+  { key: 'pink',     name: '粉', main: '#e83da4', light: '#f899ee', dark: '#720f36', glow: '#ff26a9' },
+  { key: 'green',    name: '绿', main: '#69be21', light: '#b4ee55', dark: '#156007', glow: '#73ed0b' },
+  { key: 'red',      name: '红', main: '#e2451e', light: '#f68956', dark: '#8b100c', glow: '#ff3300' },
+  { key: 'cyan',     name: '青', main: '#1dc1a5', light: '#55e6d4', dark: '#084c5b', glow: '#05f1c8' }
 ];
 
 /** 方块的特殊属性 */
@@ -74,7 +81,7 @@ export const SCORE = {
   leftoverBase: 900,
   leftoverStep: 25,
   /** 道具惩罚 */
-  hammerPenalty: 50,
+  hammerPenalty: 0,    // 原版删除道具不扣分，只是不得分
   transformPenalty: 80,
   hintPenalty: 30,
   /** 任务完成奖励 */
@@ -97,9 +104,14 @@ export const STAGE = {
   /** 棋盘随关卡长高，给后期更高的分数天花板 */
   rowEveryStages: 5,
   maxExtraRows: 4,
-  colorsStart: 5,          // 起始颜色数
-  colorsMax: 7,
-  colorsEveryStages: 6,    // 每多少关多一种颜色
+  /**
+   * 原版从头到尾就是 5 种方块（棋盘顶部的计数条只有 5 格），
+   * 所以这里固定 5 色，难度交给棋盘变大、顽石与任务目标去推进。
+   * 想玩更难的可以把 colorsMax 调到 6 或 7，引擎与素材都支持。
+   */
+  colorsStart: 5,
+  colorsMax: 5,
+  colorsEveryStages: 6,
   missionFromStage: 6,     // 第 6 关起出现任务目标
   magicFromStage: 3,       // 第 3 关起出现魔术方块
   magicRateBase: 0.025,    // 魔术方块占比
@@ -126,17 +138,18 @@ export const ANIM = {
   idleHintAfter: 6000
 };
 
-/** 道具初始数量 */
+/** 道具初始数量（原版开局是「删除 ×3」「变换 ×3」） */
 export const ITEMS = {
   hammer: 3,
-  transform: 2,
+  transform: 3,
   hint: 5
 };
 
 export const ITEM_META = {
-  hammer:    { name: '榔头',   desc: '敲掉任意一个方块，不受相连规则限制', icon: '🔨' },
-  transform: { name: '变换',   desc: '把一片区域染成同色，制造可消组合',   icon: '🎨' },
-  hint:      { name: '提示',   desc: '指出一组可以消除的方块',             icon: '👁' }
+  // 名字取自原版界面：「删除」「变换」
+  hammer:    { name: '删除',   desc: '直接删掉任意一个方块，不受相连规则限制', icon: '🔨' },
+  transform: { name: '变换',   desc: '把一片区域染成同色，制造可消组合',       icon: '🎨' },
+  hint:      { name: '提示',   desc: '指出一组可以消除的方块',                 icon: '👁' }
 };
 
 /** 变换道具影响的范围（十字 + 中心，共 5 格） */
@@ -145,6 +158,7 @@ export const TRANSFORM_SHAPE = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]];
 /** 默认设置 */
 export const DEFAULT_SETTINGS = {
   board: 'standard',
+  collapse: 'gravity',  // gravity = 原版（上方落下 + 空列左移）；center/left/right 为变体
   sound: true,
   music: true,
   vibrate: true,

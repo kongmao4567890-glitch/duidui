@@ -96,7 +96,8 @@ export class Game {
       colors: mode === MODE.FREE ? Math.min(6, this.stage.colors) : this.stage.colors,
       rng: this.rng,
       bus: this.bus,
-      collapse: COLLAPSE.CENTER,
+      // 原版是「上方落下 + 空列左移」；设置里可以切成向中间靠拢的变体
+      collapse: COLLAPSE[(this.settings.collapse || 'gravity').toUpperCase()] || COLLAPSE.GRAVITY,
       magicRate: mode === MODE.FREE ? 0.03 : this.stage.magicRate,
       stoneRate: mode === MODE.FREE ? 0 : this.stage.stoneRate
     });
@@ -114,9 +115,11 @@ export class Game {
     this.missionState = (this.stage.missions || []).map((m) => ({ ...m, done: false }));
 
     this.companion = new Companion({ mascot: this.stage.mascot, rng: this.rng, bus: this.bus });
-    this.companion.onStageStart(this.stage);
 
+    // 先发 game:start 让 UI 重建（其中会清空聊天记录），
+    // 再让看板娘开口，否则开场那两句会被立刻清掉。
     this.bus.emit('game:start', { mode, stage: this.stage });
+    this.companion.onStageStart(this.stage);
     return this;
   }
 

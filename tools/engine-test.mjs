@@ -420,6 +420,21 @@ console.log('\n【12】Game 层：完整一关');
   for (let i = 0; i < 400 && game.phase === PHASE.PLAYING; i++) game.update(16);
   ok(rescued, '无路可走时先提示可用道具救场，而不是直接结束');
 
+  ok(game.board.collapse === COLLAPSE.GRAVITY, `Game 层用的是原版重力填补（实际 ${game.board.collapse}）`);
+  // 整局跑完后，每一列仍必须严格底对齐 —— 这条曾经因为 Game 里写死了
+  // COLLAPSE.CENTER 而被绕过，引擎自测直接构造 Board 反而测不出来
+  {
+    const b = game.board;
+    let holes = 0;
+    for (let c = 0; c < b.cols; c++) {
+      let seenEmpty = false;
+      for (let r = b.rows - 1; r >= 0; r--) {
+        if (!b.get(c, r)) seenEmpty = true;
+        else if (seenEmpty) holes++;
+      }
+    }
+    ok(holes === 0, `整局结束后没有悬空方块（洞数 ${holes}）`);
+  }
   ok(game.phase === PHASE.WIN || game.phase === PHASE.LOSE, `一关跑完并结算（${game.phase}）`);
   ok(game.score > 0, `得到了分数：${game.score}`);
   ok(game.stats.groupCount > 0, `统计到 ${game.stats.groupCount} 组消除`);

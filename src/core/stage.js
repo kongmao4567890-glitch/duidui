@@ -8,32 +8,32 @@ import { Rng } from './rng.js';
 
 /** 章节主题（影响背景、配色与旁白） */
 export const CHAPTERS = [
-  { id: 'forest', name: '幽夜森林', from: 1,  to: 10,   sky: ['#0d1b2f', '#1b3350'], accent: '#7ee787', lamp: '#ffd166' },
-  { id: 'candy',  name: '糖果之城', from: 11, to: 20,   sky: ['#331028', '#5c1f4b'], accent: '#ff9ecd', lamp: '#ffd6e7' },
-  { id: 'frost',  name: '霜寒雪原', from: 21, to: 30,   sky: ['#0b2233', '#144058'], accent: '#8ed8ff', lamp: '#d0f0ff' },
-  { id: 'flame',  name: '熔岩深渊', from: 31, to: 40,   sky: ['#2b0f07', '#571f08'], accent: '#ffb057', lamp: '#ff7b3d' },
-  { id: 'sky',    name: '云端回廊', from: 41, to: 60,   sky: ['#161f47', '#303c78'], accent: '#c5b3ff', lamp: '#b8c6ff' },
-  { id: 'abyss',  name: '终焉之渊', from: 61, to: 9999, sky: ['#120920', '#2a1040'], accent: '#e599f7', lamp: '#ff9ce0' }
+  { id: 'dusk',   name: '夕照湖畔', from: 1,  to: 10,   sky: ['#c2551f', '#8a3312'], accent: '#ffc46b', lamp: '#ffd166' },
+  { id: 'candy',  name: '糖果之城', from: 11, to: 20,   sky: ['#b8306a', '#6e1740'], accent: '#ff9ecd', lamp: '#ffd6e7' },
+  { id: 'frost',  name: '霜寒雪原', from: 21, to: 30,   sky: ['#2f6f95', '#17415c'], accent: '#8ed8ff', lamp: '#d0f0ff' },
+  { id: 'flame',  name: '熔岩深渊', from: 31, to: 40,   sky: ['#a8340e', '#4d1505'], accent: '#ffb057', lamp: '#ff7b3d' },
+  { id: 'night',  name: '星夜回廊', from: 41, to: 60,   sky: ['#2a3470', '#141a3c'], accent: '#c5b3ff', lamp: '#b8c6ff' },
+  { id: 'abyss',  name: '终焉之渊', from: 61, to: 9999, sky: ['#3c1259', '#160823'], accent: '#e599f7', lamp: '#ff9ce0' }
 ];
 
 /** 右侧头像的角色资料（原版右下角小狗在此作为看板娘/吉祥物） */
 export const MASCOTS = [
-  { name: '小红帽', title: '森林向导',   face: '🧚', color: '#ff6b81',
-    lines: ['一次点掉的方块越多，分数越高哦！', '别急着点，先找最大的一坨。', '实在没得点了，就用榔头吧。'] },
-  { name: '糖果师', title: '甜品屋掌柜', face: '🍬', color: '#ffa94d',
+  { art: 'assets/art/hood.svg', name: '小红帽', title: '森林向导',   face: '🧚', art: 'assets/art/hood.svg', color: '#ff6b81',
+    lines: ['一次点掉的方块越多，分数越高哦！', '别急着点，先找最大的一坨。', '实在没得点了，就用删除道具吧。'] },
+  { art: 'assets/art/piggy.svg', name: '糖果师', title: '甜品屋掌柜', face: '🍬', color: '#ffa94d',
     lines: ['甜甜的方块，一次来一大串！', '留在最后的方块越少，奖励越丰厚～', '变换道具能把一片染成同色哟。'] },
-  { name: '雪灵',   title: '霜原的低语', face: '❄️', color: '#74c0fc',
-    lines: ['冷静点，先看清楚整块形状。', '边角的方块最容易被孤立。', '靠拢是往中间走，记住这一点。'] },
-  { name: '炎心',   title: '烈焰学派',   face: '🔥', color: '#ff8787',
-    lines: ['烧掉一大片才够痛快！', '魔术方块点一下就换色，别浪费。', '顽石只能用榔头砸。'] },
-  { name: '云雀',   title: '云端信使',   face: '☁️', color: '#c5b3ff',
+  { art: 'assets/art/hood.svg', name: '雪灵',   title: '霜原的低语', face: '❄️', color: '#74c0fc',
+    lines: ['冷静点，先看清楚整块形状。', '边角的方块最容易被孤立。', '消掉下面的，上面的就会掉下来。'] },
+  { art: 'assets/art/monkey.svg', name: '炎心',   title: '烈焰学派',   face: '🔥', color: '#ff8787',
+    lines: ['烧掉一大片才够痛快！', '魔术方块点一下就换色，别浪费。', '顽石只能用删除道具清掉。'] },
+  { art: 'assets/art/hood.svg', name: '云雀',   title: '云端信使',   face: '☁️', color: '#c5b3ff',
     lines: ['任务完成能拿一大笔奖励分。', '两个任务都做到，这关就稳了。', '慢慢来，这局没有时间限制。'] },
-  { name: '渊主',   title: '终焉看门人', face: '👑', color: '#e599f7',
+  { art: 'assets/art/piggy.svg', name: '渊主',   title: '终焉看门人', face: '👑', color: '#e599f7',
     lines: ['走到这里的人不多。', '让我看看你的极限。', '每一步都算数。'] }
 ];
 
 /** 旁边那只只负责卖萌的小狗（原版右下角装饰） */
-export const PUPPY = { name: '旺财', face: '🐶', lines: ['汪！', '汪汪～', '（歪头）', '（摇尾巴）', '（打了个哈欠）'] };
+export const PUPPY = { art: 'assets/art/hood.svg', name: '旺财', face: '🐶', lines: ['汪！', '汪汪～', '（歪头）', '（摇尾巴）', '（打了个哈欠）'] };
 
 export function chapterOf(stage) {
   return CHAPTERS.find((c) => stage >= c.from && stage <= c.to) || CHAPTERS[CHAPTERS.length - 1];

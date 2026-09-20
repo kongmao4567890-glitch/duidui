@@ -1,0 +1,58 @@
+[
+  {
+    "main": "#a330c8",
+    "light": "#ea93f8",
+    "dark": "#3a0859",
+    "glow": "#c41ffa",
+    "key": "purple",
+    "name": "紫"
+  },
+  {
+    "main": "#2baae8",
+    "light": "#8ceffa",
+    "dark": "#0e3370",
+    "glow": "#10b0ff",
+    "key": "blue",
+    "name": "蓝"
+  },
+  {
+    "main": "#dea822",
+    "light": "#f7e152",
+    "dark": "#7e4d11",
+    "glow": "#ffb706",
+    "key": "orange",
+    "name": "橙"
+  },
+  {
+    "main": "#e83da4",
+    "light": "#f899ee",
+    "dark": "#720f36",
+    "glow": "#ff26a9",
+    "key": "pink",
+    "name": "粉"
+  },
+  {
+    "main": "#69be21",
+    "light": "#b4ee55",
+    "dark": "#156007",
+    "glow": "#73ed0b",
+    "key": "green",
+    "name": "绿"
+  },
+  {
+    "main": "#e2451e",
+    "light": "#f68956",
+    "dark": "#8b100c",
+    "glow": "#ff3300",
+    "key": "red",
+    "name": "红"
+  },
+  {
+    "main": "#1dc1a5",
+    "light": "#55e6d4",
+    "dark": "#084c5b",
+    "glow": "#05f1c8",
+    "key": "cyan",
+    "name": "青"
+  }
+]

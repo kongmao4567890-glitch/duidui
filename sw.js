@@ -29,9 +29,23 @@ const CORE = [
   './src/ui/dom.js',
   './src/ui/hud.js',
   './src/ui/screens.js',
+  './src/render/assets.js',
   './assets/icons/icon.svg',
   './assets/icons/icon-192.png',
-  './assets/icons/icon-512.png'
+  './assets/icons/icon-512.png',
+  './assets/art/hood.svg',
+  './assets/art/monkey.svg',
+  './assets/art/piggy.svg',
+  './assets/art/puppy.svg',
+  './assets/blocks/0.png',
+  './assets/blocks/1.png',
+  './assets/blocks/2.png',
+  './assets/blocks/3.png',
+  './assets/blocks/4.png',
+  './assets/blocks/5.png',
+  './assets/blocks/6.png',
+  './assets/blocks/magic.png',
+  './assets/blocks/empty.png'
 ];
 
 self.addEventListener('install', (event) => {

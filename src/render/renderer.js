@@ -8,6 +8,7 @@
  */
 
 import { getSprite, roundRect, clearSpriteCache } from './sprites.js';
+import { getImage } from './assets.js';
 import { ParticleSystem } from './particles.js';
 import { GEM_COLORS, BLOCK_KIND } from '../core/config.js';
 import { clamp, easeOutCubic } from '../core/util.js';
@@ -195,16 +196,21 @@ export class Renderer {
     ctx.restore();
   }
 
-  /** 格子底纹：深浅交错的棋盘格 */
+  /** 格子底纹：优先用从原版抠出来的空格贴图，没有就画深浅交错的棋盘格 */
   _drawCells(board) {
     if (!this.showGrid) return;
     const ctx = this.ctx;
+    const tile = getImage('empty');
     ctx.save();
     for (let r = 0; r < board.rows; r++) {
       for (let c = 0; c < board.cols; c++) {
         const { x, y } = this.cellPos(c, r);
-        ctx.fillStyle = (c + r) % 2 === 0 ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.016)';
-        ctx.fillRect(x, y, this.cell, this.cell);
+        if (tile) {
+          ctx.drawImage(tile, x, y, this.cell, this.cell);
+        } else {
+          ctx.fillStyle = (c + r) % 2 === 0 ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.016)';
+          ctx.fillRect(x, y, this.cell, this.cell);
+        }
       }
     }
     ctx.restore();
