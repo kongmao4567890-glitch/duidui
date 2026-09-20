@@ -463,10 +463,11 @@ export class Renderer {
     this.particles.sparkle(x, y, this.cell, '#ffffff', 16);
   }
 
-  /** 变换道具的染色特效 */
-  onTransform(cells, color, board) {
-    const c = GEM_COLORS[color] || GEM_COLORS[0];
+  /** 变换道具的重排特效：每格按自己的颜色迸出星光 */
+  onTransform(cells, board) {
     for (const i of cells) {
+      const b = board.grid[i];
+      const c = GEM_COLORS[b && b.type >= 0 ? b.type : 0] || GEM_COLORS[0];
       const { x, y } = this.cellCenter(board.colOf(i), board.rowOf(i));
       this.particles.sparkle(x, y, this.cell, c.light, 10);
     }

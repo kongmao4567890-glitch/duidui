@@ -13,9 +13,9 @@ import { formatScore } from '../core/util.js';
 const plain = (n) => String(Math.max(0, Math.round(n)));
 import { GEM_COLORS, SCORE, ITEM_META } from '../core/config.js';
 
-/** 底板的设计尺寸 */
-export const STAGE_W = 680;
-export const STAGE_H = 580;
+/** 底板的原生尺寸（坐标直接用底图像素，不做换算） */
+export const STAGE_W = 1318;
+export const STAGE_H = 1079;
 
 export class StageView {
   constructor(game) {

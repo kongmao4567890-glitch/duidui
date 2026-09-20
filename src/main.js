@@ -95,8 +95,9 @@ class App {
     const availW = w - (portrait ? 16 : 110);
     const availH = h - (portrait ? 76 : 20);
     const fit = Math.min(availW / STAGE_W, availH / STAGE_H);
-    // 缩到 0.62 以下方块就不足 25px，手指点不准，那还不如用手机版式
-    return fit >= 0.62 ? 'stage' : 'mobile';
+    // 原版格距 77.4px，缩到 0.33 以下方块就不足 25px，手指点不准，
+    // 那还不如用手机版式
+    return fit >= 0.33 ? 'stage' : 'mobile';
   }
 
   applyViewMode(force = false) {
@@ -179,8 +180,8 @@ class App {
       if (this.settings.vibrate) vibrate(12);
     });
 
-    bus.on('board:transform', ({ cells, color }) => {
-      this.renderer.onTransform(cells, color, g.board);
+    bus.on('board:transform', ({ cells }) => {
+      this.renderer.onTransform(cells, g.board);
       audio.transform();
     });
 

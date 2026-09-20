@@ -353,12 +353,18 @@ export class Board {
   }
 
   /**
-   * 变换：把一片区域的方块染成同一种颜色，制造可消组合。
+   * 变换：随机打乱指定区域内方块的排列。
+   * （原版游戏方法写的是「使用变换道具能随机变换指定区域内的方块排列」，
+   *   不是把区域染成同色。）
+   *
+   * 纯随机有可能洗出一模一样的排列，那样玩家会以为道具没生效，
+   * 所以这里会重洗几次，直到排列确实变了为止；仍然是随机结果，
+   * 只是排除掉「什么都没发生」这一种。
+   *
    * @param {number} i 中心格
    * @param {Array<[number,number]>} shape 相对坐标
-   * @param {number|null} color 指定颜色，留空则自动挑一个最有利的颜色
    */
-  transformAt(i, shape, color = null) {
+  transformAt(i, shape) {
     if (!this.enabled || this.state !== BOARD_STATE.IDLE) return null;
     const c0 = this.colOf(i), r0 = this.rowOf(i);
     const targets = [];
@@ -366,39 +372,31 @@ export class Board {
       const c = c0 + dc, r = r0 + dr;
       if (!this.inside(c, r)) continue;
       const b = this.get(c, r);
-      if (!b || b.isStone) continue;
+      if (!b || b.isStone) continue;      // 顽石搬不动
       targets.push(this.index(c, r));
     }
-    if (!targets.length) return null;
+    if (targets.length < 2) return null;
 
-    // 自动选色：挑区域四周出现最多的颜色，最容易连成大组
-    let picked = color;
-    if (picked == null) {
-      const counts = new Array(this.colors).fill(0);
-      for (const t of targets) {
-        const c = this.colOf(t), r = this.rowOf(t);
-        for (const [nc, nr] of [[c + 1, r], [c - 1, r], [c, r + 1], [c, r - 1]]) {
-          const nb = this.get(nc, nr);
-          if (nb && nb.matchable) counts[nb.type]++;
-        }
-      }
-      picked = counts.indexOf(Math.max(...counts));
-      if (picked < 0) picked = this.rng.int(this.colors);
+    const before = targets.map((t) => this.grid[t]);
+    let picked = null;
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const shuffled = this.rng.shuffle(before.slice());
+      if (shuffled.some((b, k) => b !== before[k])) { picked = shuffled; break; }
     }
+    if (!picked) return null;             // 区域里全是同一颗？洗不出变化
 
-    for (const t of targets) {
-      const b = this.grid[t];
-      b.type = picked;
-      b.kind = BLOCK_KIND.NORMAL;
-      b.anim = { type: 'flip', t: 0, dur: ANIM.magicFlip };
-    }
+    targets.forEach((t, k) => {
+      this.grid[t] = picked[k];
+      picked[k].anim = { type: 'flip', t: 0, dur: ANIM.magicFlip };
+    });
+
     this.selection = null;
     this.hint = null;
     this.state = BOARD_STATE.FLIPPING;
     this.animT = 0;
     this.animDur = ANIM.magicFlip;
-    this.bus.emit('board:transform', { cells: targets, color: picked });
-    return { cells: targets, color: picked };
+    this.bus.emit('board:transform', { cells: targets });
+    return { cells: targets };
   }
 
   /** 魔术方块：点击切换自身颜色 */

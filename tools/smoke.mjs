@@ -283,22 +283,22 @@ const stage = await page.evaluate(() => {
     stageVisible: r.width > 100 && r.height > 100,
     canvasIsStage: app.renderer.canvas.id === 'stageBoard',
     fitMode: app.renderer.fitMode,
-    bgLoaded: bg.complete && bg.naturalWidth === 680,
+    bgLoaded: bg.complete && bg.naturalWidth === 1318,
     counters: document.querySelectorAll('#stCounter .cc-item').length,
-    // 棋盘必须精确贴在底板的棋盘区上：左上角相对舞台应为 (7,130)×缩放
+    // 棋盘必须精确贴在底板的棋盘区上：左上角相对舞台应为 (10,231)×缩放
     offX: Math.round((cv.left - r.left) / app.stageView.scale),
     offY: Math.round((cv.top - r.top) / app.stageView.scale),
     cellPx: Math.round(app.renderer.cell / app.stageView.scale)
   };
 });
 ok(stage.mode === 'stage', `横屏自动切到原版还原（实际 ${stage.mode}）`);
-ok(stage.stageVisible && stage.scale > 0.6, `舞台按 ${stage.scale?.toFixed(2)} 倍等比缩放显示`);
+ok(stage.stageVisible && stage.scale > 0.3, `舞台按 ${stage.scale?.toFixed(2)} 倍等比缩放显示`);
 ok(stage.canvasIsStage && stage.fitMode === 'exact', '渲染器切到舞台画布并使用精确铺满模式');
-ok(stage.bgLoaded, '680×580 的原版底板已加载');
+ok(stage.bgLoaded, '1318×1079 的原版底板已加载');
 ok(stage.counters === 5, `计数条有 5 种方块（实际 ${stage.counters}）`);
-ok(stage.offX === 7 && stage.offY === 130,
-   `棋盘精确落在底板的棋盘区 (7,130)（实际 ${stage.offX},${stage.offY}）`);
-ok(stage.cellPx === 40, `格子边长还原为原版的 40px（实际 ${stage.cellPx}）`);
+ok(stage.offX === 10 && stage.offY === 231,
+   `棋盘精确落在底板的棋盘区 (10,231)（实际 ${stage.offX},${stage.offY}）`);
+ok(stage.cellPx === 77, `格子边长还原为原版的 77.4px（实际 ${stage.cellPx}）`);
 await shot('16-原版还原');
 
 // 能点、能消 —— 上一节已经把棋盘打空了，先重开一关

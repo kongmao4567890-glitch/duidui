@@ -322,14 +322,26 @@ console.log('\n【9】榔头与变换道具');
   settle(b);
   ok(b.remaining === before - 1, '榔头敲掉一个方块');
 
-  const { b: b2 } = mkBoard(6, 4);
-  layout(b2, ['ABABAB', 'BABABA', 'ABABAB', 'BABABA']);
-  const res = b2.transformAt(b2.index(2, 2), [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]);
+  // 变换：随机打乱 3×3 区域内方块的排列（官方说明），不是染成同色
+  const { b: b2 } = mkBoard(6, 5);
+  layout(b2, ['ABABAB', 'BCDABA', 'ADBCAB', 'BABDBA', 'ABCABA']);
+  const shape = [[-1,-1],[0,-1],[1,-1],[-1,0],[0,0],[1,0],[-1,1],[0,1],[1,1]];
+  const center = b2.index(2, 2);
+  const cellsBefore = shape.map(([dc, dr]) => b2.index(2 + dc, 2 + dr));
+  const idsBefore = cellsBefore.map((i) => b2.grid[i].id);
+  const typesBefore = cellsBefore.map((i) => b2.grid[i].type).sort().join();
+  const totalBefore = b2.remaining;
+
+  const res = b2.transformAt(center, shape);
   settle(b2);
-  ok(res && res.cells.length === 5, `变换影响十字 5 格（实际 ${res?.cells.length}）`);
-  ok(b2.hasMoves() === true, '变换之后制造出了可消组合');
-  const types = res.cells.map((i) => b2.grid[i].type);
-  ok(new Set(types).size === 1, '被变换的格子染成同一种颜色');
+  ok(res && res.cells.length === 9, `变换影响 3×3 共 9 格（实际 ${res?.cells.length}）`);
+  const idsAfter = cellsBefore.map((i) => b2.grid[i].id);
+  ok(idsAfter.some((id, k) => id !== idsBefore[k]), '区域内方块的排列确实被打乱了');
+  ok(new Set(idsAfter).size === 9 && idsAfter.every((id) => idsBefore.includes(id)),
+     '只是重新排列，没有凭空增删方块');
+  const typesAfter = cellsBefore.map((i) => b2.grid[i].type).sort().join();
+  ok(typesAfter === typesBefore, '各颜色的数量保持不变（不是染色）');
+  ok(b2.remaining === totalBefore, '棋盘方块总数不变');
 }
 
 console.log('\n【10】结束判定');

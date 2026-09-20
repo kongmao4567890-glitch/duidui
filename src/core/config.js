@@ -82,10 +82,10 @@ export const SCORE = {
   leftoverStep: 25,
   /** 道具惩罚 */
   hammerPenalty: 0,    // 原版删除道具不扣分，只是不得分
-  transformPenalty: 80,
+  transformPenalty: 0,   // 原版变换道具不扣分
   hintPenalty: 30,
-  /** 任务完成奖励 */
-  missionBonus: 800
+  /** 每完成一个任务的奖励分（原版：3 个任务 3000 分、4 个任务 4000 分） */
+  missionBonus: 1000
 };
 
 /** 关卡生成参数 */
@@ -116,7 +116,12 @@ export const STAGE = {
   colorsStart: 5,
   colorsMax: 5,
   colorsEveryStages: 6,
-  missionFromStage: 6,     // 第 6 关起出现任务目标
+  /**
+   * 原版的游戏方法里写明「第 6 关和第 11 关有游戏任务」。
+   * 本作关卡可以一直打下去，所以从第 11 关起每 5 关复现一次。
+   */
+  missionStages: [6, 11],
+  missionEvery: 5,
   magicFromStage: 3,       // 第 3 关起出现魔术方块
   magicRateBase: 0.025,    // 魔术方块占比
   magicRateStep: 0.004,
@@ -152,12 +157,16 @@ export const ITEMS = {
 export const ITEM_META = {
   // 名字取自原版界面：「删除」「变换」
   hammer:    { name: '删除',   desc: '直接删掉任意一个方块，不受相连规则限制', icon: '🔨' },
-  transform: { name: '变换',   desc: '把一片区域染成同色，制造可消组合',       icon: '🎨' },
+  transform: { name: '变换',   desc: '随机打乱一片 3×3 区域内方块的排列',      icon: '🎨' },
   hint:      { name: '提示',   desc: '指出一组可以消除的方块',                 icon: '👁' }
 };
 
-/** 变换道具影响的范围（十字 + 中心，共 5 格） */
-export const TRANSFORM_SHAPE = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]];
+/** 变换道具影响的范围：以点击处为中心的 3×3 共 9 格 */
+export const TRANSFORM_SHAPE = [
+  [-1, -1], [0, -1], [1, -1],
+  [-1,  0], [0,  0], [1,  0],
+  [-1,  1], [0,  1], [1,  1]
+];
 
 /** 默认设置 */
 export const DEFAULT_SETTINGS = {

@@ -39,74 +39,52 @@ export function chapterOf(stage) {
   return CHAPTERS.find((c) => stage >= c.from && stage <= c.to) || CHAPTERS[CHAPTERS.length - 1];
 }
 
-/** 任务类型定义 */
-export const MISSION_TYPES = {
-  color: {
-    id: 'color',
-    /** @returns {{text:string, need:number, color:number}} */
-    make(rng, ctx) {
-      const color = rng.int(ctx.colors);
-      const need = 12 + rng.int(8) + Math.floor(ctx.n / 4) * 2;
-      return { type: 'color', color, need, text: `消除 ${need} 个「${GEM_COLORS[color].name}」方块` };
-    },
-    progress: (m, s) => s.colorCleared[m.color] || 0
-  },
-  bigGroup: {
-    id: 'bigGroup',
-    make(rng, ctx) {
-      const need = clamp(5 + Math.floor(ctx.n / 6) + rng.int(2), 5, 10);
-      return { type: 'bigGroup', need, text: `单次消除 ${need} 个及以上方块` };
-    },
-    progress: (m, s) => Math.min(m.need, s.maxGroup)
-  },
-  groups: {
-    id: 'groups',
-    make(rng, ctx) {
-      const need = 14 + rng.int(6) + Math.floor(ctx.n / 3);
-      return { type: 'groups', need, text: `累计消除 ${need} 组方块` };
-    },
-    progress: (m, s) => Math.min(m.need, s.groupCount)
-  },
-  leftover: {
-    id: 'leftover',
-    make(rng, ctx) {
-      const need = clamp(Math.round(ctx.cells * 0.18) - rng.int(4), 6, 40);
-      return { type: 'leftover', need, text: `通关时剩余方块不超过 ${need} 个` };
-    },
-    progress: (m, s) => (s.remaining <= m.need ? m.need : 0),
-    lateCheck: true
-  },
-  magic: {
-    id: 'magic',
-    make(rng, ctx) {
-      const need = 2 + rng.int(2) + Math.floor(ctx.n / 12);
-      return { type: 'magic', need, text: `消除 ${need} 个魔术方块` };
-    },
-    progress: (m, s) => Math.min(m.need, s.magicCleared)
-  },
-  noItem: {
-    id: 'noItem',
-    make() {
-      return { type: 'noItem', need: 1, text: '全程不使用任何道具' };
-    },
-    progress: (m, s) => (s.itemsUsed === 0 ? 1 : 0),
-    lateCheck: true
-  }
-};
+/**
+ * 任务定义
+ * ------------------------------------------------------------------
+ * 原版的任务只有一种形态：给定几种颜色，各消除 6 个，全部完成拿奖励分。
+ * 从干净截图里能直接读出来：4 个色块各标着 6，奖励 4000 分；
+ * 录屏里是 3 个各 6、奖励 3000 分 —— 即每完成一项 1000 分。
+ */
+export const MISSION_NEED = 6;
 
-/** 按关卡随机抽取两个互不重复的任务 */
+/** 这一关有没有游戏任务 */
+export function hasMissions(n) {
+  if (STAGE.missionStages.includes(n)) return true;
+  const last = STAGE.missionStages[STAGE.missionStages.length - 1];
+  return n > last && (n - last) % STAGE.missionEvery === 0;
+}
+
+/** 按关卡抽取任务：3 种颜色起步，第 11 关起 4 种 */
 function makeMissions(n, ctx, rng) {
-  if (n < STAGE.missionFromStage) return [];
-  const pool = ['color', 'bigGroup', 'groups', 'leftover'];
-  if (n >= STAGE.magicFromStage + 4) pool.push('magic');
-  if (n >= 10) pool.push('noItem');
+  if (!hasMissions(n)) return [];
+  const count = Math.min(ctx.colors, n >= 11 ? 4 : 3);
+  const pool = [];
+  for (let i = 0; i < ctx.colors; i++) pool.push(i);
   rng.shuffle(pool);
-  const count = n >= STAGE.missionFromStage + 4 ? 2 : 1;
-  return pool.slice(0, count).map((k) => MISSION_TYPES[k].make(rng, ctx));
+  return pool.slice(0, count).map((color) => ({
+    type: 'color',
+    color,
+    need: MISSION_NEED,
+    text: `消除 ${MISSION_NEED} 个「${GEM_COLORS[color].name}」方块`
+  }));
+}
+
+/** 任务是否完成 */
+export function missionDone(mission, stats) {
+  return (stats.colorCleared[mission.color] || 0) >= mission.need;
+}
+
+/** 任务进度文本 */
+export function missionProgressText(mission, stats) {
+  const cur = Math.min(mission.need, stats.colorCleared[mission.color] || 0);
+  return `${cur} / ${mission.need}`;
 }
 
 /**
- * 棋盘会随关卡缓慢变高，给后期关卡留出更高的分数上限。
+ * 棋盘尺寸。原版固定 10×10 —— 原版还原模式的底板就是按这个尺寸抠的，
+ * 棋盘一变大就对不上位。难度改由难度压强、顽石与任务推进。
+ * 想玩更大的棋盘，把 config 里的 maxExtraRows 调大即可（会自动切到手机版式）。
  * @param {number} n 关卡号
  * @param {string} boardKey 玩家选择的尺寸预设
  */
@@ -130,7 +108,7 @@ export function colorScoreFactor(colors) {
 /** 估算某个配置下「认真玩」能拿到的分数上限（已计入颜色补偿系数） */
 export function achievableScore(colors, cells, magicRate = 0, stoneRate = 0) {
   const c = clamp(colors, 3, 7);
-  const per = (PER_CELL_SCORE[c] ?? 25) * colorScoreFactor(c);
+  const per = (PER_CELL_SCORE[c] ?? 21) * colorScoreFactor(c);
   // 顽石消不掉，还会把色块切断，是纯粹的阻碍；
   // 魔术方块则是白送的万能牌 —— 换色不要钱，会用的人能靠它把两片色块接起来。
   // 系数由 tools/balance.mjs 在固定 10×10 棋盘上回归得出：
@@ -139,7 +117,7 @@ export function achievableScore(colors, cells, magicRate = 0, stoneRate = 0) {
   return Math.max(500, effective * per);
 }
 
-/** 难度压强：目标分占可达分的比例，随关卡从 42% 爬到 88% */
+/** 难度压强：目标分占可达分的比例，随关卡爬升 */
 export function stagePressure(n) {
   return Math.min(STAGE.pressureMax, STAGE.pressureBase + (n - 1) * STAGE.pressureStep);
 }
@@ -241,24 +219,7 @@ export function makeStage(n, boardKey = 'standard') {
     /** 三星门槛 */
     stars: [target, Math.round(target * 1.22 / 50) * 50, Math.round(target * 1.5 / 50) * 50],
     brief: missions.length
-      ? `达到 ${target} 分过关；完成任务可获得额外奖励分。`
+      ? `达到 ${target} 分过关；完成 ${missions.length} 个游戏任务另有 ${missions.length * 1000} 分奖励。`
       : `在方块点完之前达到 ${target} 分即可过关。`
   };
-}
-
-/** 计算任务是否完成 */
-export function missionDone(mission, stats) {
-  const def = MISSION_TYPES[mission.type];
-  if (!def) return false;
-  return def.progress(mission, stats) >= mission.need;
-}
-
-/** 任务进度文本 */
-export function missionProgressText(mission, stats) {
-  const def = MISSION_TYPES[mission.type];
-  if (!def) return '';
-  if (mission.type === 'leftover') return `剩余 ${stats.remaining} / ≤${mission.need}`;
-  if (mission.type === 'noItem') return stats.itemsUsed === 0 ? '保持中' : '已失败';
-  const cur = Math.min(mission.need, def.progress(mission, stats));
-  return `${cur} / ${mission.need}`;
 }
