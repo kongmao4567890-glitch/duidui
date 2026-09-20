@@ -11,6 +11,18 @@ import { formatScore } from '../core/util.js';
 
 /** 原版的数字不带千分位，直接整数显示 */
 const plain = (n) => String(Math.max(0, Math.round(n)));
+
+/**
+ * 计数条和任务里的小色块，原版用的就是方块贴图本身（带小动物脸），
+ * 所以这里直接贴图；贴图缺失时退回到用配色画的纯色块。
+ */
+function paintChip(node, type) {
+  const c = GEM_COLORS[type];
+  node.style.background = `linear-gradient(180deg, ${c.light}, ${c.main} 45%, ${c.dark})`;
+  node.style.backgroundImage = `url(assets/blocks/${type}.png)`;
+  node.style.backgroundSize = '100% 100%';
+  node.style.backgroundRepeat = 'no-repeat';
+}
 import { GEM_COLORS, SCORE, ITEM_META } from '../core/config.js';
 
 /** 底板的原生尺寸（坐标直接用底图像素，不做换算） */
@@ -89,11 +101,10 @@ export class StageView {
     for (let t = 0; t < colors; t++) {
       const item = el('div', 'cc-item');
       const chip = el('span', 'cc-chip');
-      const c = GEM_COLORS[t];
-      chip.style.background = `linear-gradient(180deg, ${c.light}, ${c.main} 45%, ${c.dark})`;
+      paintChip(chip, t);
       const num = el('span', 'cc-num', '0');
       item.append(chip, num);
-      item.title = `${c.name}色方块剩余数量`;
+      item.title = `${GEM_COLORS[t].name}色方块剩余数量`;
       box.appendChild(item);
       this.ccNodes.push({ item, num });
     }
@@ -119,8 +130,7 @@ export class StageView {
       const node = el('div', 'st-mission');
       if (m.type === 'color' && GEM_COLORS[m.color]) {
         const chip = el('span', 'cc-chip');
-        const c = GEM_COLORS[m.color];
-        chip.style.background = `linear-gradient(180deg, ${c.light}, ${c.main} 45%, ${c.dark})`;
+        paintChip(chip, m.color);
         node.appendChild(chip);
         node.appendChild(el('span', 'st-mission-num', String(m.need)));
       } else {

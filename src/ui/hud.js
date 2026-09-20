@@ -113,6 +113,8 @@ export class Hud {
         const icons = el('div', 'mission-icons');
         const chip = el('span', 'cc-chip');
         chip.style.background = GEM_COLORS[m.color].main;
+        chip.style.backgroundImage = `url(assets/blocks/${m.color}.png)`;
+        chip.style.backgroundSize = '100% 100%';
         icons.appendChild(chip);
         node.appendChild(icons);
       }
@@ -140,7 +142,10 @@ export class Hud {
     for (let t = 0; t < colors; t++) {
       const item = el('div', 'cc-item');
       const chip = el('span', 'cc-chip');
+      // 和原版一致：用方块贴图本身当小图标，贴图缺失时退回纯色块
       chip.style.background = `linear-gradient(180deg, ${GEM_COLORS[t].light}, ${GEM_COLORS[t].main} 45%, ${GEM_COLORS[t].dark})`;
+      chip.style.backgroundImage = `url(assets/blocks/${t}.png)`;
+      chip.style.backgroundSize = '100% 100%';
       const num = el('span', 'cc-num', '0');
       item.append(chip, num);
       item.title = `${GEM_COLORS[t].name}色方块剩余数量`;
