@@ -1,7 +1,13 @@
 # 构建安卓 APK
 # ------------------------------------------------------------------
-# 手动触发，或推 tag（v*）时自动出包。
-# 产物在 Actions 的 Artifacts 里下载；打 tag 的话还会自动建一个 Release。
+# 三种触发方式：
+#   · 推到开发分支     → 自动出 debug 包
+#   · 在 Actions 页手动 → 可选 debug / release
+#   · 推 tag（v*）     → 出 release 包并自动建 Release
+# 产物在 Actions 的 Artifacts 里下载。
+#
+# 注意：workflow_dispatch 要求工作流文件存在于默认分支才会出现「Run workflow」
+# 按钮，所以这里同时挂了分支推送触发，仓库还没合并到主分支时也能出包。
 name: 构建安卓 APK
 
 on:
@@ -15,6 +21,11 @@ on:
         options: [debug, release]
   push:
     tags: ['v*']
+    branches: ['claude/**', 'main', 'master']
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - '**/*.md'
 
 permissions:
   contents: write
@@ -56,10 +67,13 @@ jobs:
       - name: 决定构建类型
         id: cfg
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
+          # 打 tag 出正式包，平时推分支只出 debug 包（不需要签名，装了就能玩）
+          if [ "${{ startsWith(github.ref, 'refs/tags/v') }}" = "true" ]; then
             echo "type=release" >> "$GITHUB_OUTPUT"
-          else
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "type=${{ inputs.build_type }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=debug" >> "$GITHUB_OUTPUT"
           fi
 
       - name: 写入签名证书（仓库配了 secrets 时）
