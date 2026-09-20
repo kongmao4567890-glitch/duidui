@@ -3,7 +3,7 @@
  * 生成 PWA 用的 192/512、iOS 用的 180、以及安卓自适应图标用的前景图。
  * 用法：node tools/make-icons.mjs
  */
-import { chromium } from 'playwright';
+import { launchBrowser } from './browser.mjs';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -108,7 +108,7 @@ function pageHtml(size, { bleed = false, transparent = false } = {}) {
   <\/script></body></html>`;
 }
 
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const browser = await launchBrowser({ headless: !process.argv.includes('--headed') });
 const page = await browser.newPage();
 page.on('pageerror', (e) => console.error('  页面脚本出错：', e.message));
 page.on('console', (m) => { if (m.type() === 'error') console.error('  控制台：', m.text()); });

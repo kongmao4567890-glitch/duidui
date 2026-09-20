@@ -1,0 +1,126 @@
+# 构建安卓 APK
+# ------------------------------------------------------------------
+# 手动触发，或推 tag（v*）时自动出包。
+# 产物在 Actions 的 Artifacts 里下载；打 tag 的话还会自动建一个 Release。
+name: 构建安卓 APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 构建类型
+        required: true
+        default: debug
+        type: choice
+        options: [debug, release]
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: 打包 APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 安装 JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: 准备 Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 安装依赖
+        run: npm install --no-audit --no-fund
+
+      - name: 跑一遍引擎自测
+        run: node tools/engine-test.mjs
+
+      - name: 收集网页资源
+        run: node tools/build.mjs
+
+      - name: 同步到安卓工程
+        run: npx cap sync android
+
+      - name: 决定构建类型
+        id: cfg
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "type=release" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=${{ inputs.build_type }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 写入签名证书（仓库配了 secrets 时）
+        if: steps.cfg.outputs.type == 'release' && env.KEYSTORE_B64 != ''
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > android/app/release.keystore
+          cat >> android/app/build.gradle <<'GRADLE'
+
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file('release.keystore')
+                      storePassword System.getenv('KEYSTORE_PASSWORD')
+                      keyAlias System.getenv('KEY_ALIAS')
+                      keyPassword System.getenv('KEY_PASSWORD')
+                  }
+              }
+              buildTypes {
+                  release { signingConfig signingConfigs.release }
+              }
+          }
+          GRADLE
+
+      - name: 编译
+        working-directory: android
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          if [ "${{ steps.cfg.outputs.type }}" = "release" ]; then
+            ./gradlew assembleRelease --no-daemon --stacktrace
+          else
+            ./gradlew assembleDebug --no-daemon --stacktrace
+          fi
+
+      - name: 整理产物
+        id: apk
+        run: |
+          mkdir -p out
+          find android/app/build/outputs/apk -name '*.apk' -exec cp {} out/ \;
+          ls -la out/
+          echo "name=duidui-${{ steps.cfg.outputs.type }}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: 上传 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.name }}
+          path: out/*.apk
+          if-no-files-found: error
+
+      - name: 发布 Release（仅打 tag 时）
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*.apk
+          body: |
+            对对碰 ${{ github.ref_name }}
+
+            下载下面的 APK 装到安卓手机上即可。
+            首次安装可能需要在系统设置里允许「安装未知来源应用」。

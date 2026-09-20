@@ -2,7 +2,7 @@
  * 快速截图：起服务、开到游戏里、按指定视口截几张。
  * 用法：node tools/shot.mjs [输出目录]
  */
-import { chromium, devices } from 'playwright';
+import { launchBrowser } from './browser.mjs';
 import { createServer } from 'node:http';
 import { readFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -27,9 +27,7 @@ const server = createServer(async (req, res) => {
 await new Promise((r) => server.listen(0, r));
 const BASE = `http://127.0.0.1:${server.address().port}/index.html`;
 
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
-});
+const browser = await launchBrowser({ headless: !process.argv.includes('--headed') });
 
 async function capture(name, viewport, mobile, steps) {
   const ctx = await browser.newContext({ viewport, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: 2, locale: 'zh-CN' });

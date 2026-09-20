@@ -6,7 +6,7 @@
  *
  * 用法：node tools/smoke.mjs [--headed]
  */
-import { chromium, devices } from 'playwright';
+import { launchBrowser } from './browser.mjs';
 import { createServer } from 'node:http';
 import { readFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -48,10 +48,7 @@ await new Promise((r) => server.listen(0, r));
 const PORT = server.address().port;
 const BASE = `http://127.0.0.1:${PORT}/index.html`;
 
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
-  headless: !process.argv.includes('--headed')
-});
+const browser = await launchBrowser({ headless: !process.argv.includes('--headed') });
 
 const errors = [];
 const logs = [];

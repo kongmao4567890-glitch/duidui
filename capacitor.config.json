@@ -1,0 +1,21 @@
+{
+  "appId": "com.duidui.game",
+  "appName": "对对碰",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#06080f"
+  },
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "launchShowDuration": 600,
+      "backgroundColor": "#0d1b2f",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    }
+  }
+}

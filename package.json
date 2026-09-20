@@ -1,0 +1,33 @@
+{
+  "name": "duidui",
+  "version": "1.0.0",
+  "description": "对对碰 —— 联众世界 Flash 版的复刻，纯 HTML5，可在安卓手机上玩",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx --yes http-server -p 8080 -c-1 .",
+    "test": "node tools/engine-test.mjs",
+    "test:browser": "node tools/smoke.mjs",
+    "balance": "node tools/balance.mjs 24 50",
+    "curve": "node tools/curve.mjs 50",
+    "icons": "node tools/make-icons.mjs",
+    "shots": "node tools/shot.mjs",
+    "check": "node tools/check.mjs",
+    "android:sync": "npx cap sync android",
+    "android:open": "npx cap open android"
+  },
+  "keywords": [
+    "对对碰",
+    "消除",
+    "SameGame",
+    "html5",
+    "pwa",
+    "android"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/android": "^6.2.2",
+    "@capacitor/cli": "^6.2.2",
+    "@capacitor/core": "^6.2.2"
+  }
+}

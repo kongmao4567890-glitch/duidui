@@ -1,0 +1,42 @@
+# 每次推代码都跑一遍自测
+name: 自测
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    name: 引擎与浏览器测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 模块语法检查
+        run: node tools/check.mjs
+
+      - name: 引擎自测
+        run: node tools/engine-test.mjs
+
+      - name: 难度曲线校验
+        run: node tools/balance.mjs 16 30
+
+      - name: 安装依赖与浏览器
+        run: |
+          npm install --no-audit --no-fund playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: 浏览器端烟囱测试
+        run: node tools/smoke.mjs
+
+      - name: 保存截图
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: docs/screenshots/
+          if-no-files-found: ignore
