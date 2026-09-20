@@ -822,14 +822,14 @@ body.mode-stage .app { display: none; }
 }
 .st-counter .cc-item {
   flex: none; width: 102.5px;
-  display: flex; align-items: center; gap: 6px; justify-content: flex-start;
+  display: flex; align-items: center; gap: 8px; justify-content: flex-start;
 }
 .st-counter .cc-chip { width: 45px; height: 45px; border-radius: 10px; flex: none; }
 .st-counter .cc-num {
   /* 原版用的是等宽窄体，系统字偏宽，所以收一点字号和字距免得顶到下一格 */
-  font-size: 44px; font-weight: 900; font-variant-numeric: tabular-nums;
+  font-size: 41px; font-weight: 900; font-variant-numeric: tabular-nums;
   letter-spacing: -.03em; line-height: 1;
-  color: #fff6b0; min-width: 46px; text-align: left;
+  color: #fff6b0; min-width: 43px; text-align: left;
   text-shadow: 0 0 10px rgba(255, 200, 60, .8),
     2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000;
 }

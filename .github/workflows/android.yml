@@ -51,6 +51,10 @@ jobs:
 
       - name: 准备 Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # 这个 action 默认要装 `tools` 包，而该包早已从 SDK 仓库下架，
+          # 装不到就直接退出。这里显式列出真正需要的组件绕开它。
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
 
       - name: 安装依赖
         run: npm install --no-audit --no-fund
