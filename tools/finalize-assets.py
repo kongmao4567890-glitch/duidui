@@ -12,17 +12,34 @@ SRC = "/home/user/duidui/assets/art/original"
 OUT = "/home/user/duidui/assets/blocks"
 os.makedirs(OUT, exist_ok=True)
 
-# rip.py 的输出顺序：0紫 1蓝 2橙 3粉 4绿，5 是绿色小人（魔术方块）
-PICK = [
-    ("purple", "raw-block-0.png", "紫"),
-    ("blue",   "raw-block-1.png", "蓝"),
-    ("orange", "raw-block-2.png", "橙"),
-    ("pink",   "raw-block-3.png", "粉"),
-    ("green",  "raw-block-4.png", "绿"),
-]
-MAGIC = "raw-block-5.png"
+# 素材优先用 rip-clean.py 从无水印截图里抠的高清版（77px，比录屏的 40px
+# 清晰近一倍）；缺失时退回录屏版。
+# rip-clean.py 的聚类顺序：0绿 1橙 2紫 3粉 4蓝，第 11 类是绿色小人（魔术方块）。
+HD = os.path.exists(f"{SRC}/hd-block-0.png")
+if HD:
+    PICK = [
+        ("purple", "hd-block-2.png", "紫"),
+        ("blue",   "hd-block-4.png", "蓝"),
+        ("orange", "hd-block-1.png", "橙"),
+        ("pink",   "hd-block-3.png", "粉"),
+        ("green",  "hd-block-0.png", "绿"),
+    ]
+    MAGIC = "hd-block-11.png"
+    UP = 2          # 77px ×2 = 154px，够用了
+else:
+    PICK = [
+        ("purple", "raw-block-0.png", "紫"),
+        ("blue",   "raw-block-1.png", "蓝"),
+        ("orange", "raw-block-2.png", "橙"),
+        ("pink",   "raw-block-3.png", "粉"),
+        ("green",  "raw-block-4.png", "绿"),
+    ]
+    MAGIC = "raw-block-5.png"
+    UP = 4
+print(("使用高清素材（无水印截图）" if HD else "使用录屏素材") + f"，放大 {UP} 倍")
 
-def upscale(img, k=4):
+def upscale(img, k=None):
+    k = k or UP
     big = img.resize((img.width*k, img.height*k), Image.LANCZOS)
     return big.filter(ImageFilter.UnsharpMask(radius=2, percent=65, threshold=2))
 
@@ -67,8 +84,8 @@ for i, (key, fn, cn) in enumerate(PICK):
     print(f"  {i}.png  {cn}  main={p['main']}  light={p['light']}  dark={p['dark']}")
 
 # 备用色：由橙旋转出朱红、由绿旋转出青
-base_orange = Image.open(os.path.join(SRC, "raw-block-2.png")).convert("RGB")
-base_green  = Image.open(os.path.join(SRC, "raw-block-4.png")).convert("RGB")
+base_orange = Image.open(os.path.join(SRC, PICK[2][1])).convert("RGB")
+base_green  = Image.open(os.path.join(SRC, PICK[4][1])).convert("RGB")
 for i, (key, cn, base, deg) in enumerate([
     ("red",  "红", base_orange, -32),
     ("cyan", "青", base_green,   82),

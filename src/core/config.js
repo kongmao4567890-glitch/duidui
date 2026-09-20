@@ -17,13 +17,13 @@
  * 只有在把颜色数调到 6~7 时才会用到。
  */
 export const GEM_COLORS = [
-  { key: 'purple',   name: '紫', main: '#a330c8', light: '#ea93f8', dark: '#3a0859', glow: '#c41ffa' },
-  { key: 'blue',     name: '蓝', main: '#2baae8', light: '#8ceffa', dark: '#0e3370', glow: '#10b0ff' },
-  { key: 'orange',   name: '橙', main: '#dea822', light: '#f7e152', dark: '#7e4d11', glow: '#ffb706' },
-  { key: 'pink',     name: '粉', main: '#e83da4', light: '#f899ee', dark: '#720f36', glow: '#ff26a9' },
-  { key: 'green',    name: '绿', main: '#69be21', light: '#b4ee55', dark: '#156007', glow: '#73ed0b' },
-  { key: 'red',      name: '红', main: '#e2451e', light: '#f68956', dark: '#8b100c', glow: '#ff3300' },
-  { key: 'cyan',     name: '青', main: '#1dc1a5', light: '#55e6d4', dark: '#084c5b', glow: '#05f1c8' }
+  { key: 'purple',   name: '紫', main: '#a930cd', light: '#ee97fb', dark: '#3e0b54', glow: '#cb1eff' },
+  { key: 'blue',     name: '蓝', main: '#2dadef', light: '#8cf4fe', dark: '#193c7b', glow: '#10aeff' },
+  { key: 'orange',   name: '橙', main: '#e6ac13', light: '#fae93d', dark: '#8e5211', glow: '#ffb800' },
+  { key: 'pink',     name: '粉', main: '#f03eab', light: '#fe94f0', dark: '#771139', glow: '#ff25aa' },
+  { key: 'green',    name: '绿', main: '#69bd15', light: '#bbef42', dark: '#1a5f04', glow: '#76ec00' },
+  { key: 'red',      name: '红', main: '#e53c14', light: '#f78343', dark: '#98100e', glow: '#ff3000' },
+  { key: 'cyan',     name: '青', main: '#10c09f', light: '#46e6cd', dark: '#064f59', glow: '#00f0c3' }
 ];
 
 /** 方块的特殊属性 */
